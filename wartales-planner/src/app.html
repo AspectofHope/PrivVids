@@ -303,16 +303,24 @@ img.pgi { width: 22px; height: 22px; filter: invert(.7) sepia(.2); }
 .total { text-align: center; line-height: 1.05; }
 .total b { font-size: 1.35rem; font-weight: 600; color: var(--gold-hi); display: block; font-variant-numeric: tabular-nums; }
 .total small { font-size: .72rem; color: var(--muted); }
+.party-name { text-align: center; color: var(--gold-hi); }
 /* Right-edge drawer */
-@media (max-width: 720px) { main { padding-right: calc(max(16px, env(safe-area-inset-right, 0px)) + 22px); } }
-.dtabs { position: fixed; right: env(safe-area-inset-right, 0px); top: 42%; z-index: 26; transition: right .22s ease; display: flex; flex-direction: column; gap: 6px; }
-.dtabs button { writing-mode: vertical-rl; transform: rotate(180deg); padding: 12px 6px; background: var(--tab); border: 1px solid var(--gold); border-right: 0; color: var(--gold-hi); font-size: .88rem; letter-spacing: .06em; box-shadow: -3px 0 10px rgba(0,0,0,.5); }
+@media (max-width: 720px) { main { padding-right: calc(max(16px, env(safe-area-inset-right, 0px)) + 22px); padding-left: calc(max(16px, env(safe-area-inset-left, 0px)) + 22px); } }
+.dtabs { position: fixed; z-index: 26; display: flex; flex-direction: column; gap: 6px; transition: left .22s ease, right .22s ease; }
+.dtabs.right { right: env(safe-area-inset-right, 0px); top: 55%; }
+.dtabs.left { left: env(safe-area-inset-left, 0px); top: 33%; }
+.dtabs button { writing-mode: vertical-rl; padding: 12px 6px; background: var(--tab); border: 1px solid var(--gold); color: var(--gold-hi); font-size: .88rem; letter-spacing: .06em; box-shadow: 0 0 10px rgba(0,0,0,.5); }
+.dtabs.right button { transform: rotate(180deg); border-right: 0; }
+.dtabs.left button { border-left: 0; }
 .dtabs button[aria-pressed="true"] { background: #3a2e1c; }
 .drawer { position: fixed; top: 0; bottom: 0; right: 0; width: min(88vw, 380px); z-index: 25; background: linear-gradient(180deg, #24221f, #171614); border-left: 1px solid #000;
   box-shadow: inset 1px 0 0 rgba(255,255,255,.08), -10px 0 30px rgba(0,0,0,.6); display: flex; flex-direction: column; transform: translateX(105%); transition: transform .22s ease;
   padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); padding-right: env(safe-area-inset-right, 0px); }
+.drawer.left { right: auto; left: 0; border-left: 0; border-right: 1px solid #000; box-shadow: inset -1px 0 0 rgba(255,255,255,.08), 10px 0 30px rgba(0,0,0,.6);
+  transform: translateX(-105%); padding-right: 0; padding-left: env(safe-area-inset-left, 0px); }
 .drawer.open { transform: none; }
-.dtabs.open { right: calc(min(88vw, 380px) + env(safe-area-inset-right, 0px)); }
+.dtabs.right.open { right: calc(min(88vw, 380px) + env(safe-area-inset-right, 0px)); }
+.dtabs.left.open { left: calc(min(88vw, 380px) + env(safe-area-inset-left, 0px)); }
 .drawer .sh-b { flex: 1; }
 .member.on { background: rgba(198,165,100,.1); box-shadow: inset 3px 0 0 var(--gold); }
 @media (prefers-reduced-motion: reduce) { .drawer, .dtabs { transition: none; } }
@@ -357,7 +365,8 @@ textarea.code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size
 
 <main id="app"></main>
 
-<div class="dtabs" id="dtabs"><button type="button" data-drawer="party" aria-label="Open party list">Party</button><button type="button" data-drawer="shop" aria-label="Open shopping list">Shopping</button></div>
+<div class="dtabs left" id="dtabsL"><button type="button" data-drawer="party" aria-label="Open party list">Party</button></div>
+<div class="dtabs right" id="dtabsR"><button type="button" data-drawer="shop" aria-label="Open shopping list">Shopping</button></div>
 <aside id="drawer" class="drawer" aria-label="Side panel" hidden>
   <div class="sh-h"><b id="drTitle"></b><button type="button" class="x" id="drClose" aria-label="Close">×</button></div>
   <div class="sh-b" id="drBody"></div>
@@ -787,7 +796,8 @@ function renderParty() {
     <div class="row" style="margin-top:6px">${S.party.captain === r.b.id ? `<span class="chip rec">Captain</span>` : `<button type="button" class="btn small" data-rank="captain" data-id="${r.b.id}">Make Captain</button>`}
     ${S.party.lieutenant === r.b.id ? `<span class="chip rec">Lieutenant</span>` : `<button type="button" class="btn small" data-rank="lieutenant" data-id="${r.b.id}">Make Lieutenant</button>`}</div></div></div>`;
   return `<section class="panel equip" aria-label="Party">
-    <h2 class="h2">Your party · ${party.length} ${party.length === 1 ? "companion" : "companions"}</h2>
+    <input id="partyName" class="name party-name" value="${esc(S.party.name || "")}" placeholder="Name your party" aria-label="Party name">
+    <h2 class="h2">${esc(S.party.name || "Your party")} · ${party.length} ${party.length === 1 ? "companion" : "companions"}</h2>
     <div class="members">${party.map(memberCard).join("")}</div>
     <div class="row" style="justify-content:center"><button type="button" class="btn small primary" id="addMember">+ Add companion</button></div>
     <h2 class="h2">Team composition</h2>
@@ -1251,10 +1261,12 @@ const drawer = document.getElementById("drawer");
 let drawerTab = null;
 function renderDrawer() {
   document.querySelectorAll("[data-drawer]").forEach(x => x.setAttribute("aria-pressed", x.dataset.drawer === drawerTab));
-  document.getElementById("dtabs").classList.toggle("open", !!drawerTab);
+  document.getElementById("dtabsL").classList.toggle("open", drawerTab === "party");
+  document.getElementById("dtabsR").classList.toggle("open", drawerTab === "shop");
+  if (drawerTab) drawer.classList.toggle("left", drawerTab === "party");
   if (!drawerTab) { drawer.classList.remove("open"); setTimeout(() => { if (!drawerTab) drawer.hidden = true; }, 220); return; }
   drawer.hidden = false; requestAnimationFrame(() => drawer.classList.add("open"));
-  document.getElementById("drTitle").textContent = drawerTab === "party" ? "Party" : "Shopping list";
+  document.getElementById("drTitle").textContent = drawerTab === "party" ? (S.party.name || "Party") : "Shopping list";
   const b0 = cur();
   document.getElementById("drBody").innerHTML = decoHTML(drawerTab === "party"
     ? S.builds.map(b => { const rank = b.id === S.party.captain ? "Captain" : b.id === S.party.lieutenant ? "Lieutenant" : ""; return `<button type="button" class="member${b.id === b0.id ? " on" : ""}" data-open="${b.id}">
@@ -1416,6 +1428,7 @@ app.addEventListener("input", e => {
   }
 
   const b = cur();
+  if (e.target.id === "partyName") { S.party.name = e.target.value.trim() ? e.target.value : ""; save(); const h = e.target.nextElementSibling; if (h) h.textContent = `${S.party.name || "Your party"} · ${S.builds.length} ${S.builds.length === 1 ? "companion" : "companions"}`; return; }
   if (e.target.id === "nameIn") { b.name = e.target.value; save(); const o = document.querySelector(`#buildSel option[value="${b.id}"]`); if (o) o.textContent = `${b.name || "Unnamed"} · ${byId[b.cls].name}`; }
   if (e.target.id === "notesIn") { b.notes = e.target.value; save(); }
 });

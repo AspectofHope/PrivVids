@@ -21,6 +21,7 @@ values = {
     "__RECIPES__": (data / "recipes.json").read_text(),
     "__LAYERS__": (data / "layers.json").read_text(),
     "__SMALL_ICONS__": (data / "small_icons.json").read_text(),
+    "__MATERIALS__": (data / "materials.json").read_text(),
 }
 for key, value in values.items():
     assert page.count(key) == 1, key

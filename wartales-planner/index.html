@@ -21,7 +21,7 @@
   --red: #cf5a40;
   --r-common: #d8d2c4; --r-unusual: #86b65a; --r-rare: #5f95dc; --r-legendary: #b984e0;
   --serif: "EB Garamond", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
-  --dw: min(calc(100vw - 76px), 380px);   /* side panel width: leaves room for both edge tabs */
+  --dw: min(calc(100vw - 40px), 380px);   /* side panel width: leaves room for the open tab */
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
@@ -308,8 +308,8 @@ img.pgi { width: 22px; height: 22px; filter: invert(.7) sepia(.2); }
 /* Right-edge drawer */
 @media (max-width: 720px) { main { padding-right: calc(max(16px, env(safe-area-inset-right, 0px)) + 22px); padding-left: calc(max(16px, env(safe-area-inset-left, 0px)) + 22px); } }
 .dtabs { position: fixed; z-index: 26; transition: left .22s ease, right .22s ease, opacity .15s; display: flex; flex-direction: column; gap: 6px; }
-.dtabs.right { right: env(safe-area-inset-right, 0px); top: 42%; }
-.dtabs.left { left: env(safe-area-inset-left, 0px); top: 42%; }
+.dtabs.right { right: env(safe-area-inset-right, 0px); top: 56%; }
+.dtabs.left { left: env(safe-area-inset-left, 0px); top: 30%; }
 .dtabs button { writing-mode: vertical-rl; padding: 12px 6px; background: var(--tab); border: 1px solid var(--gold); color: var(--gold-hi); font-size: .88rem; letter-spacing: .06em; box-shadow: 0 0 10px rgba(0,0,0,.5); }
 .dtabs.right button { transform: rotate(180deg); border-left: 0; }
 .dtabs.left button { border-left: 0; }

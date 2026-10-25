@@ -1,0 +1,663 @@
+<title>Wartales Build Planner</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap">
+<style>
+/* Layout: the in-game character sheet folded into one phone column. Hero card (name, class, level), tab boxes, then the
+   specialisation tree as "Lvl" rows of icons, or the equipment paper-doll. Single dark look by design, matching the game. */
+:root {
+  --bg: #242220;          /* weathered stone */
+  --panel: #191816;
+  --panel-hi: #211f1c;
+  --tab: #141312;
+  --line: #48443e;        /* Lvl rules and frames */
+  --ink: #e4ded0;
+  --muted: #9a9387;
+  --dim: #6b665d;
+  --gold: #c6a564;        /* accent: selection ring */
+  --gold-hi: #ecd59d;
+  --green: #8ab55f;
+  --red: #cf5a40;
+  --r-common: #d8d2c4; --r-unusual: #86b65a; --r-rare: #5f95dc; --r-legendary: #b984e0;
+  --serif: "EB Garamond", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { background: var(--bg); }
+body {
+  margin: 0; color: var(--ink); font-family: var(--serif); font-size: 17px; line-height: 1.4;
+  background:
+    radial-gradient(140% 90% at 50% 0%, rgba(255,255,255,.035), transparent 55%),
+    repeating-linear-gradient(135deg, rgba(255,255,255,.012) 0 2px, transparent 2px 5px),
+    var(--bg);
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--tab); }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+/* Top bar */
+.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 6; background: var(--tab); border-bottom: 1px solid var(--line);
+  padding-block: 8px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.bar-in { max-width: 640px; margin: 0 auto; display: flex; gap: 8px; align-items: center; }
+.brand { font-weight: 600; font-size: 1.15rem; line-height: 1; margin-right: auto; white-space: nowrap; letter-spacing: .02em; }
+.brand small { display: block; font-size: .72rem; color: var(--muted); letter-spacing: .12em; text-transform: uppercase; margin-top: 3px; }
+.bar select { min-width: 0; max-width: 48vw; padding: 6px 8px; border: 1px solid var(--line); background: var(--panel); border-radius: 0; }
+
+main { max-width: 640px; margin: 0 auto; padding-block: 14px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-direction: column; gap: 14px; }
+
+/* Panels: flat dark slabs with a hairline frame, as in the game */
+.panel { background: linear-gradient(180deg, var(--panel-hi), var(--panel)); border: 1px solid #000; box-shadow: inset 0 0 0 1px rgba(255,255,255,.05), 0 6px 18px rgba(0,0,0,.35); }
+.btn { border: 1px solid var(--line); background: #2b2926; padding: 6px 12px; font-weight: 500; }
+.btn:hover { border-color: var(--gold); }
+.btn.primary { border-color: var(--gold); color: var(--gold-hi); background: #2f2a20; }
+.btn.danger { color: var(--red); }
+.btn.small { padding: 4px 10px; font-size: .92rem; white-space: nowrap; }
+
+/* Hero: name, class line, level */
+.hero { padding: 14px 14px 12px; display: flex; flex-direction: column; gap: 12px; }
+.hero-top { display: flex; gap: 12px; align-items: flex-start; }
+.portrait { width: 64px; height: 64px; flex: none; background: radial-gradient(circle at 50% 40%, #3a3631, #141312 75%); border: 1px solid var(--line); display: grid; place-items: center; }
+.portrait img { width: 40px; height: 40px; filter: invert(.86) sepia(.25); }
+.who { flex: 1; min-width: 0; }
+.name { width: 100%; font-size: 1.7rem; font-weight: 500; line-height: 1.1; border: 0; border-bottom: 1px solid transparent; background: transparent; padding: 0 0 2px; }
+.name:focus { border-bottom-color: var(--line); outline: none; }
+.classline { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 1.02rem; margin-top: 2px; flex-wrap: wrap; }
+.classline img { width: 20px; height: 20px; filter: invert(.7) sepia(.2); }
+.classline b { color: var(--ink); font-weight: 500; }
+.levelrow { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.stepper { display: flex; align-items: center; border: 1px solid var(--line); background: var(--tab); }
+.stepper button { width: 42px; height: 40px; border: 0; background: transparent; font-size: 1.3rem; color: var(--gold); }
+.stepper output { min-width: 74px; text-align: center; font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+.stepper output span { color: var(--muted); font-size: .9rem; }
+.next { flex: 1; min-width: 170px; font-size: .98rem; color: var(--muted); }
+.next b { color: var(--ink); font-weight: 600; }
+.next strong { color: var(--red); font-weight: 600; }
+.points { display: inline-flex; align-items: center; gap: 4px; color: var(--gold-hi); font-weight: 600; }
+.classes { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 4px; }
+.cls { aspect-ratio: 1; border: 1px solid var(--line); background: var(--tab); display: grid; place-items: center; padding: 0; }
+.cls img { width: 62%; height: 62%; filter: invert(.55) sepia(.2); }
+.cls[aria-pressed="true"] { border-color: var(--gold); box-shadow: inset 0 0 0 1px var(--gold), 0 0 10px rgba(198,165,100,.3); }
+.cls[aria-pressed="true"] img { filter: invert(.92) sepia(.5) saturate(1.6); }
+.blurb { margin: 0; font-size: .95rem; color: var(--muted); font-style: italic; }
+
+/* Tab boxes like the game's panel titles */
+.tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.tab { background: var(--tab); border: 1px solid #000; box-shadow: inset 0 0 0 1px rgba(255,255,255,.05); padding: 9px 4px; font-size: 1.05rem; font-weight: 500; color: var(--muted); }
+.tab[aria-selected="true"] { color: var(--ink); box-shadow: inset 0 0 0 1px rgba(255,255,255,.08), inset 0 -2px 0 var(--gold); }
+
+/* Specialisation tree */
+.tree { padding: 6px 12px 14px; }
+.lvrow { padding-top: 14px; }
+.rule { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 1.02rem; }
+.rule::before, .rule::after { content: ""; flex: 1; height: 7px; border-left: 1px solid var(--line); border-right: 1px solid var(--line); background: linear-gradient(var(--line), var(--line)) center / 100% 1px no-repeat; }
+.rule .st { font-size: .8rem; letter-spacing: .06em; text-transform: uppercase; }
+.rule .st.due { color: var(--red); } .rule .st.picked { color: var(--green); } .rule .st.planned { color: var(--gold); }
+.icons { display: flex; justify-content: center; flex-wrap: wrap; gap: 10px 12px; padding: 12px 0 8px; }
+.sk { position: relative; width: 54px; height: 54px; padding: 0; border: 0; background: none; }
+.sk > img { width: 54px; height: 54px; display: block; filter: grayscale(1) brightness(.5) contrast(1.1); transition: filter .15s; }
+.sk:hover > img { filter: grayscale(.6) brightness(.75); }
+.sk.on > img { filter: drop-shadow(0 0 0 var(--gold)) drop-shadow(0 0 1.5px var(--gold)) drop-shadow(0 0 1.5px var(--gold)) drop-shadow(0 0 6px rgba(236,213,157,.55)); }
+.sk.focus:not(.on) > img { filter: grayscale(.2) brightness(.85); }
+.sk .vp { position: absolute; right: -3px; bottom: -3px; display: flex; gap: 0; }
+.sk .vp img { width: 15px; height: 15px; filter: none; }
+.sk.small, .sk.small > img { width: 46px; height: 46px; }
+.detail { margin: 2px 2px 0; padding: 10px 12px; background: rgba(0,0,0,.28); border: 1px solid rgba(255,255,255,.05); }
+.detail .hint { color: var(--dim); font-style: italic; font-size: .95rem; margin: 0; text-align: center; }
+.d-h { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
+.d-h b { font-size: 1.15rem; font-weight: 600; }
+.d-h .sub { color: var(--muted); font-style: italic; }
+.cost { display: inline-flex; gap: 1px; vertical-align: middle; }
+.cost img { width: 17px; height: 17px; }
+.tag { font-size: .78rem; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); border: 1px solid var(--line); padding: 0 5px; }
+.tag.hidden { color: var(--red); border-color: var(--red); }
+.desc { margin: 6px 0 0; font-size: .98rem; color: #d3ccbd; }
+.up { display: flex; gap: 6px; margin-top: 6px; font-size: .94rem; color: var(--muted); }
+.up img { width: 15px; height: 15px; margin-top: 3px; flex: none; }
+.info { margin-top: 6px; font-size: .8rem; letter-spacing: .07em; text-transform: uppercase; color: var(--dim); }
+.where { margin-top: 6px; color: var(--red); font-size: .94rem; }
+.d-act { display: flex; justify-content: flex-end; margin-top: 8px; gap: 8px; }
+.subpick { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 8px; }
+.subpick > p.lead { margin: 0; color: var(--muted); font-size: .92rem; text-align: center; }
+
+.term { border-bottom: 1px dotted var(--gold); cursor: help; }
+
+/* Equipment */
+.equip { padding: 12px; display: flex; flex-direction: column; gap: 14px; }
+.h2 { margin: 0; text-align: center; font-weight: 500; font-size: 1.1rem; background: var(--tab); border: 1px solid #000; box-shadow: inset 0 0 0 1px rgba(255,255,255,.05); padding: 6px; }
+.style { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.style button { border: 1px solid var(--line); background: var(--tab); padding: 8px 6px; line-height: 1.15; }
+.style button small { display: block; color: var(--muted); font-size: .78rem; margin-top: 2px; }
+.style button[aria-pressed="true"] { border-color: var(--gold); box-shadow: inset 0 0 0 1px var(--gold); }
+.style .rec { color: var(--gold-hi); }
+.why { margin: 0; font-size: .92rem; color: var(--muted); font-style: italic; text-align: center; }
+.doll { display: grid; grid-template-columns: repeat(3, 84px); grid-template-areas: ". helmet ." "weapon armour offhand" "belt . backpack"; justify-content: center; gap: 10px 14px; }
+.slot { width: 84px; display: flex; flex-direction: column; align-items: center; gap: 4px; border: 0; background: none; padding: 0; }
+.slot .box { width: 72px; height: 72px; background: radial-gradient(circle, #2b2825, #161513); border: 1px solid #000; box-shadow: inset 0 0 0 1px rgba(255,255,255,.07), inset 0 0 14px rgba(0,0,0,.7); display: grid; place-items: center; position: relative; }
+.slot .box img { width: 60px; height: 60px; }
+.slot .box .ph { width: 30px; height: 30px; opacity: .25; filter: invert(1); }
+.slot .box.r-Common { box-shadow: inset 0 0 0 1px var(--r-common), inset 0 0 14px rgba(0,0,0,.6); }
+.slot .box.r-Unusual { box-shadow: inset 0 0 0 1px var(--r-unusual), inset 0 0 14px rgba(0,0,0,.6); }
+.slot .box.r-Rare { box-shadow: inset 0 0 0 1px var(--r-rare), inset 0 0 14px rgba(0,0,0,.6); }
+.slot .box.r-Legendary { box-shadow: inset 0 0 0 1px var(--r-legendary), inset 0 0 14px rgba(0,0,0,.6); }
+.slot small { font-size: .8rem; color: var(--muted); }
+.slot[disabled] { opacity: .35; cursor: not-allowed; }
+.gearlist { display: flex; flex-direction: column; }
+.gi { display: grid; grid-template-columns: 48px 1fr; gap: 10px; padding: 9px 2px; border-top: 1px solid rgba(255,255,255,.06); text-align: left; background: none; border-left: 0; border-right: 0; border-bottom: 0; width: 100%; }
+.gi img.ii { width: 48px; height: 48px; }
+.gi .n { font-weight: 600; font-size: 1.02rem; }
+.n.r-Common { color: var(--r-common); } .n.r-Unusual { color: var(--r-unusual); } .n.r-Rare { color: var(--r-rare); } .n.r-Legendary { color: var(--r-legendary); }
+.meta { font-size: .86rem; color: var(--muted); }
+.stats { font-size: .9rem; color: #cfc8b8; }
+.fx { font-size: .92rem; color: #cfc8b8; margin-top: 2px; }
+.fx i { color: var(--gold); font-style: normal; font-weight: 600; }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.chip { font-size: .76rem; letter-spacing: .03em; color: var(--gold-hi); border: 1px solid rgba(198,165,100,.5); padding: 0 6px; }
+.chip.rec { background: rgba(198,165,100,.16); }
+.plan { display: flex; flex-direction: column; }
+.plan-row { display: grid; grid-template-columns: 58px repeat(var(--cols), minmax(0, 1fr)); gap: 6px; align-items: start; padding: 8px 4px; border-top: 1px solid rgba(255,255,255,.06); }
+.plan-row.head { border-top: 0; padding-block: 0 4px; color: var(--muted); font-size: .82rem; }
+.plan-row.now { background: rgba(198,165,100,.09); box-shadow: inset 2px 0 0 var(--gold); }
+.plan-row .lvl { font-size: .9rem; line-height: 1.15; }
+.plan-row.now .lvl { color: var(--gold-hi); }
+.pc { display: flex; flex-direction: column; align-items: center; gap: 2px; border: 0; background: none; padding: 0; text-align: center; min-width: 0; width: 100%; }
+.pc img { width: 40px; height: 40px; }
+.pc span { font-size: .74rem; line-height: 1.1; color: #cfc8b8; overflow-wrap: anywhere; }
+.note { margin: 0; font-size: .86rem; color: var(--dim); font-style: italic; }
+
+/* Notes tab */
+.notes { padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.notes p { margin: 0; color: var(--muted); font-size: .95rem; }
+textarea.box { width: 100%; min-height: 110px; border: 1px solid var(--line); background: #11100f; padding: 8px 10px; resize: vertical; }
+textarea.code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .76rem; min-height: 80px; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.status { font-size: .92rem; color: var(--green); min-height: 1.2em; }
+.status.err { color: var(--red); }
+.foot { font-size: .84rem; color: var(--dim); text-align: center; font-style: italic; margin: 0; }
+
+/* Bottom sheets: item picker and tooltips */
+.sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; pointer-events: none;
+  padding-left: max(10px, env(safe-area-inset-left, 0px)); padding-right: max(10px, env(safe-area-inset-right, 0px)); padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
+.sheet.tip { z-index: 30; }
+.sheet-in { pointer-events: auto; max-width: 620px; margin: 0 auto; background: linear-gradient(180deg, #24221f, #171614); border: 1px solid #000;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.08), 0 -8px 30px rgba(0,0,0,.7); display: flex; flex-direction: column; max-height: 78vh; }
+.sheet.tip .sheet-in { max-height: 55vh; box-shadow: inset 0 0 0 1px var(--gold), 0 -8px 30px rgba(0,0,0,.7); }
+.sh-h { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+.sh-h b { flex: 1; font-size: 1.15rem; font-weight: 600; }
+.x { width: 36px; height: 36px; border: 1px solid var(--line); background: var(--tab); font-size: 1.3rem; line-height: 1; color: var(--gold); }
+.sh-b { overflow-y: auto; padding: 4px 12px 12px; }
+.sheet.tip .sh-b { padding-top: 10px; }
+.sh-b > p { margin: 0 0 6px; }
+.sh-b > p b { color: var(--gold); }
+.sh-b > p i { color: var(--muted); }
+.filters { display: flex; gap: 6px; padding: 8px 12px 0; flex-wrap: wrap; }
+.filters button { border: 1px solid var(--line); background: var(--tab); padding: 3px 10px; font-size: .9rem; }
+.filters button[aria-pressed="true"] { border-color: var(--gold); color: var(--gold-hi); }
+.gi.on { background: rgba(198,165,100,.1); box-shadow: inset 3px 0 0 var(--gold); }
+@media (prefers-reduced-motion: reduce) { .sk > img { transition: none; } }
+</style>
+
+<header class="bar"><div class="bar-in">
+  <div class="brand">Wartales<small>Build planner</small></div>
+  <select id="buildSel" aria-label="Choose build"></select>
+  <button class="btn primary small" id="newBtn" type="button">+ New</button>
+</div></header>
+
+<main id="app"></main>
+
+<div id="picker" class="sheet" role="dialog" aria-labelledby="pkTitle" hidden>
+  <div class="sheet-in">
+    <div class="sh-h"><b id="pkTitle"></b><button type="button" class="x" data-close="picker" aria-label="Close">×</button></div>
+    <div class="filters" id="pkFilters"></div>
+    <div class="sh-b" id="pkBody"></div>
+  </div>
+</div>
+<div id="tip" class="sheet tip" role="dialog" aria-labelledby="tipTitle" hidden>
+  <div class="sheet-in">
+    <div class="sh-h"><b id="tipTitle"></b><button type="button" class="x" data-close="tip" aria-label="Close">×</button></div>
+    <div class="sh-b" id="tipBody"></div>
+  </div>
+</div>
+
+<script>
+/* ---------- Data: skills and status effects from the Wartales Fandom wiki; specializations, unlocks and crafting tiers from game.wiki (October 2026) ---------- */
+const CLASSES = __CLASSES__;
+const ICONS = __ICONS__;
+const VALOR_IC = __VALOR__, UP_IC = __UP__, CS_IC = __CS__, MC_IC = __MC__;
+const GLOSS = __GLOSS__;
+const CENSERS = __CENSERS__;
+// Items: n name, s slot, k kind, r rarity, t crafting tier (1 Iron … 5 Vairmeil), how source, d damage, st stat bonus, a armour, g guard, fx effects, ic icon
+const ITEMS = __ITEMS__;
+
+const byId = Object.fromEntries(CLASSES.map(c => [c.id, c]));
+const KIND_LABEL = { spec: "Specialisation", valor: "Valor passive", t5: "Talent", t8: "Talent", utility: "Utility", legacy: "Bravery", master: "Master class" };
+for (const c of CLASSES) {
+  const kinds = { 2: c.meleeFirst ? "spec" : "valor", 3: c.meleeFirst ? "valor" : "spec", 5: "t5", 8: "t8", 10: "utility", 12: "legacy", 15: "master" };
+  for (const t of c.tiers) t.kind = kinds[t.lv];
+}
+
+// Weapon kinds per class: one = one-handed main hand (frees the off-hand), two = two-handed
+const GEAR = {
+  warrior:     { one: "axe1",  two: "axe2",  off: ["shield", "throw", "melee", "bomb", "torch"] },
+  swordsman:   { one: "sword1", two: "sword2", off: ["shield", "throw", "melee", "bomb", "torch"] },
+  brute:       { one: "mace1", two: "mace2", off: ["shield", "throw", "melee", "bomb", "torch"] },
+  ranger:      { one: "dagger", off: ["throw", "bomb"] },
+  spearman:    { two: "polearm" },
+  archer:      { two: "bow" },
+  crossbowman: { two: "crossbow" },
+  pugilist:    { two: "brawl" },
+  thaumaturge: { two: "censer" },
+};
+const KIND_NAME = { axe1: "One-handed axe", axe2: "Two-handed axe", sword1: "One-handed sword", sword2: "Two-handed sword", mace1: "One-handed mace", mace2: "Two-handed mace",
+  dagger: "Dagger", polearm: "Polearm", bow: "Bow", crossbow: "Crossbow", brawl: "Brawling weapon", censer: "Censer",
+  shield: "Shield", throw: "Throwing weapon", melee: "Off-hand weapon", bomb: "Bomb or flask", torch: "Torch",
+  heavy: "Heavy", medium: "Medium", light: "Light", belt: "Belt accessory", backpack: "Backpack accessory" };
+const SLOTS = [["helmet", "Helmet"], ["weapon", "Weapon"], ["armour", "Armour"], ["offhand", "Off-hand"], ["belt", "Belt"], ["backpack", "Backpack"]];
+const TIERS = [{ t: 1, lv: "1–3", name: "Iron" }, { t: 2, lv: "4–6", name: "Ghost" }, { t: 3, lv: "7–9", name: "Rimesteel" }, { t: 4, lv: "10–12", name: "Akhedian" }, { t: 5, lv: "13+", name: "Vairmeil" }];
+const tierFor = lv => lv <= 3 ? 1 : lv <= 6 ? 2 : lv <= 9 ? 3 : lv <= 12 ? 4 : 5;
+
+// Build keywords: what the chosen skills care about, matched against item effects
+const KEYS = [
+  ["Critical hits", /critical/i], ["Bleeding", /bleed/i], ["Poison", /poison|miasma/i], ["Burning", /burn|\bfire\b/i], ["Corrosion", /corros/i],
+  ["Guard", /\bguard\b/i], ["Riposte", /riposte|counter-?attack/i], ["Fury", /\bfury\b/i], ["Rage", /\brage\b/i], ["Protection", /protection|damage taken (is )?reduced|deflection/i],
+  ["Attacks of opportunity", /attacks? of opportunity/i], ["Vulnerability", /vulnerab/i], ["Weakening", /weaken/i], ["Fragility", /fragil/i],
+  ["Area attacks", /area|all (the )?(units|enemies|targets)|multiple units|several enemies|each unit in/i], ["Knockback", /knock|push(es)? (them|the target)? ?back/i],
+  ["Movement", /movement/i], ["Valor", /\bVP\b|valou?r/i], ["Healing", /\bheal/i], ["Attacks from behind", /from behind|ambush/i],
+  ["Inhalation", /inhal|purge/i], ["Reloading", /reload|loaded/i], ["Disarm", /disarm/i], ["Slowdown", /slowdown/i], ["Animals", /animal/i], ["Stances", /stance/i],
+];
+
+/* ---------- Glossary helpers ---------- */
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const GLOSS_KEY = Object.fromEntries(Object.keys(GLOSS).map(k => [k.toLowerCase(), k]));
+const GLOSS_RE = new RegExp("\\b(" + Object.keys(GLOSS).sort((a, b) => b.length - a.length)
+  .flatMap(k => /\s/.test(k) || k === "Critical Hit" ? [k, k.toLowerCase()] : [k])
+  .map(k => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|") + ")((?:e?s)?)\\b", "g");
+const linkify = html => html.replace(GLOSS_RE, (m, term) => {
+  const key = GLOSS_KEY[term.toLowerCase()];
+  return key ? `<span class="term" data-term="${key}">${m}</span>` : m;
+});
+const txt = s => linkify(esc(String(s || "").replace(/\s*\/\s*\/\s*/g, " ").replace(/\s+\/\s+/g, " · ")));
+
+/* ---------- State ---------- */
+const KEY = "wartales-planner-v1";
+const uid = () => Math.random().toString(36).slice(2, 9);
+function sample() {
+  return {
+    active: "ex1", tab: "spec",
+    builds: [{ id: "ex1", name: "Example: Berserker", cls: "warrior", level: 6, notes: "Example build. Rename it or tap + New to start your own.",
+      picks: { warrior: { 2: "warrior-berserker", 3: "warrior-valorous-duel", 5: "warrior-recklessness", 8: "warrior-battle-cry" } }, gear: {} }],
+    custom: {},
+  };
+}
+let S;
+try { S = JSON.parse(localStorage.getItem(KEY)) || sample(); } catch { S = sample(); }
+if (!S.builds?.length) S = sample();
+S.custom ||= {}; S.tab ||= "spec";
+S.builds = S.builds.filter(b => byId[b.cls]);
+if (!S.builds.length) S = sample();
+const ITEM = Object.fromEntries(ITEMS.map(i => [i.n, i]));
+for (const b of S.builds) {
+  b.gear ||= {};
+  for (const [cid, p] of Object.entries(b.picks || {})) {
+    const c = byId[cid];
+    for (const lv of Object.keys(p)) if (!c || !(p[lv] === "cs" || findOpt(c, p[lv]))) delete p[lv];
+  }
+  for (const g of Object.values(b.gear)) for (const k of Object.keys(g)) if (k !== "style" && !ITEM[g[k]]) delete g[k];
+}
+function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch {} }
+const cur = () => S.builds.find(b => b.id === S.active) || S.builds[0];
+const picksOf = b => (b.picks[b.cls] ||= {});
+const gearOf = b => (b.gear[b.cls] ||= {});
+function optsFor(cls, tier) {
+  const extra = (S.custom[cls.id] && S.custom[cls.id][tier.lv]) || [];
+  return [...tier.opts, ...extra.map(o => ({ ...o, custom: true }))];
+}
+function findOpt(cls, id) {
+  for (const t of cls.tiers) { const o = optsFor(cls, t).find(o => o.id === id); if (o) return o; }
+}
+function skipped(cls, b) {
+  const p = picksOf(b);
+  return cls.tiers.filter(t => t.lv < 12).flatMap(t => optsFor(cls, t).filter(o => o.id !== p[t.lv]).map(o => ({ ...o, from: t.lv })));
+}
+function status(b, t) {
+  const p = picksOf(b)[t.lv];
+  if (b.level >= t.lv) return p ? "picked" : "due";
+  return p ? "planned" : "open";
+}
+const STATUS_TEXT = { picked: "Taken", due: "Pick now", planned: "Planned", open: "" };
+const chosenOpts = (cls, b) => Object.values(picksOf(b)).map(id => findOpt(cls, id)).filter(Boolean);
+
+/* ---------- Recommendations ---------- */
+function profile(cls, b) {
+  const prof = {};
+  for (const o of chosenOpts(cls, b)) {
+    const text = [o.name, o.skill, o.desc, o.up].join(" ");
+    for (const [k, re] of KEYS) if (re.test(text)) prof[k] = (prof[k] || 0) + 1;
+  }
+  return prof;
+}
+function armourWeights(cls, b) {
+  const p = picksOf(b), spec = cls.tiers.find(t => t.kind === "spec");
+  const so = spec && findOpt(cls, p[spec.lv]);
+  const w = (so?.armor || "").toLowerCase();
+  if (w === "heavy") return { list: ["heavy", "medium", "light"], best: "heavy", from: so.name };
+  if (w === "medium") return { list: ["medium", "light"], best: "medium", from: so.name };
+  if (w === "light") return { list: ["light"], best: "light", from: so.name };
+  return { list: ["light"], best: "light", from: "" };
+}
+function styleRec(cls, b, prof) {
+  const g = GEAR[cls.id];
+  if (!(g.one && g.two)) return null;
+  const def = (prof["Guard"] || 0) + (prof["Protection"] || 0) + (prof["Riposte"] || 0);
+  const aoe = (prof["Area attacks"] || 0) + (prof["Critical hits"] || 0) * 0.5;
+  const style = def > aoe ? "one" : "two";
+  const why = style === "one"
+    ? (def ? `Your picks use ${["Guard", "Protection", "Riposte"].filter(k => prof[k]).join(", ")}, which a shield supports.` : "A shield adds Guard and Armour.")
+    : (aoe ? `Your picks favour ${["Area attacks", "Critical hits"].filter(k => prof[k]).join(" and ").toLowerCase()}, where two-handed damage pays off.` : "Two-handed weapons hit harder; pick skills to refine this.");
+  return { style, why };
+}
+function allowedKinds(cls, b, slot) {
+  const g = GEAR[cls.id], gear = gearOf(b);
+  if (slot === "weapon") return [g[(gear.style || styleRec(cls, b, profile(cls, b))?.style || (g.two ? "two" : "one"))] || g.one || g.two].filter(Boolean);
+  if (slot === "offhand") {
+    const style = gear.style || styleRec(cls, b, profile(cls, b))?.style || (g.two ? "two" : "one");
+    return g.off && (style === "one" || !g.two) ? g.off : [];
+  }
+  if (slot === "armour" || slot === "helmet") return armourWeights(cls, b).list;
+  return [slot];
+}
+function scoreItem(it, cls, b, prof, target) {
+  let score = 0; const why = [];
+  if (it.t != null) {
+    const d = Math.abs(target - it.t); score += 3 - d * 1.3;
+    if (d === 0) why.push(`Level ${TIERS[target - 1].lv} gear`);
+  } else if (it.r === "Legendary") { score += 1.5; why.push("Unique, upgradable"); }
+  else score += 0.5;
+  const text = [it.st, ...(it.fx || []).flat()].join(" ");
+  const hits = [];
+  for (const [k, re] of KEYS) if (prof[k] && re.test(text)) { score += Math.min(prof[k], 3) * 1.1; hits.push(k); }
+  if (hits.length) why.push("Fits: " + hits.slice(0, 3).join(", "));
+  const main = cls.stat, other = main === "Strength" ? "Dexterity" : "Strength";
+  if (it.st && new RegExp(main, "i").test(it.st)) { score += 1; why.push(`+${main}`); }
+  if (it.st && new RegExp(other, "i").test(it.st)) score -= 1.5;
+  if (it.d && new RegExp(other, "i").test(it.d)) score -= 2;
+  if ((it.s === "armour" || it.s === "helmet")) {
+    const aw = armourWeights(cls, b);
+    if (it.k === aw.best) score += 1;
+    if (aw.best === "heavy" && it.k !== "heavy" && (prof["Movement"] || prof["Attacks from behind"])) score += 0.8;
+  }
+  score += { Rare: 0.4, Legendary: 0.6 }[it.r] || 0;
+  return { score, why };
+}
+function ranked(cls, b, slot, kinds) {
+  const prof = profile(cls, b), target = tierFor(b.level);
+  return ITEMS.filter(i => i.s === slot && kinds.includes(i.k))
+    .map(i => ({ i, ...scoreItem(i, cls, b, prof, target) }))
+    .sort((x, y) => y.score - x.score || x.i.n.localeCompare(y.i.n));
+}
+function bestForTier(cls, b, slot, kinds, t) {
+  const prof = profile(cls, b);
+  const pool = ITEMS.filter(i => i.s === slot && kinds.includes(i.k) && i.t === t);
+  return pool.map(i => ({ i, ...scoreItem(i, cls, b, prof, t) })).sort((x, y) => y.score - x.score)[0]?.i;
+}
+
+/* ---------- Render ---------- */
+const app = document.getElementById("app");
+const focus = {};   // per-row focused option (view state only)
+let delArm = false, pkSlot = null, pkFilter = "rec";
+const img = (i, cls = "", alt = "") => i != null && ICONS[i] ? `<img src="${ICONS[i]}" alt="${esc(alt)}" class="${cls}" loading="lazy">` : "";
+const costIcons = n => typeof n === "number" && n ? `<span class="cost" title="${n} Valor Point${n > 1 ? "s" : ""}">${img(VALOR_IC).repeat(n)}</span>` : "";
+
+function optDetail(o, lv, chosen) {
+  const tags = [o.armor ? `<span class="tag">${esc(o.armor)} armour</span>` : "", o.hidden ? `<span class="tag hidden">Hidden</span>` : "", o.from ? `<span class="tag">From Lvl ${o.from}</span>` : ""].join(" ");
+  return `<div class="d-h"><b>${esc(o.name)}</b>${o.skill ? `<span class="sub">${esc(o.skill)}${o.note ? ` (${esc(o.note.toLowerCase())})` : ""}</span>` : ""} ${costIcons(o.cost)} ${tags}</div>
+    <p class="desc">${txt(o.desc)}</p>
+    ${o.up ? `<div class="up">${img(UP_IC, "", "Upgraded")}<span>${txt(o.up)}</span></div>` : ""}
+    ${o.info ? `<div class="info">${txt(o.info)}</div>` : ""}
+    ${o.hidden ? `<div class="where">Unlocked at ${esc(o.hidden)}.</div>` : ""}
+    ${chosen ? `<div class="d-act"><button type="button" class="btn small" data-clear="${lv}">Clear choice</button></div>` : ""}`;
+}
+function skBtn(o, lv, on, isFocus, small) {
+  return `<button type="button" class="sk${small ? " small" : ""}${on ? " on" : ""}${isFocus ? " focus" : ""}" data-pick="${lv}" data-id="${esc(o.id)}" aria-pressed="${on}" aria-label="${esc(o.name)}">${o.ic != null ? img(o.ic) : `<span class="tag">${esc(o.name)}</span>`}${costIcons(o.cost) ? `<span class="vp">${costIcons(o.cost)}</span>` : ""}</button>`;
+}
+
+function renderSpec(cls, b) {
+  const p = picksOf(b);
+  return `<section class="panel tree" aria-label="Specialisation">${cls.tiers.map(t => {
+    const s = status(b, t), opts = optsFor(cls, t), chosen = p[t.lv];
+    let icons, detail;
+    if (t.kind === "legacy") {
+      const cs = { id: "cs", name: "Class Specialisation", ic: CS_IC, desc: "Unlocks a skill from a previous level." };
+      const csOn = chosen && !opts.some(o => o.id === chosen);
+      icons = opts.map(o => skBtn(o, t.lv, o.id === chosen, focus[t.lv] === o.id)).join("") + skBtn(cs, t.lv, csOn, focus[t.lv] === "cs");
+      const f = focus[t.lv] || (csOn ? "cs" : chosen);
+      if (f === "cs" || (csOn && !focus[t.lv])) {
+        const sub = chosen && chosen !== "cs" ? findOpt(cls, chosen) : null;
+        const prev = skipped(cls, b);
+        detail = optDetail(cs, t.lv, false) + `<div class="subpick"><p class="lead">${sub ? "Unlocked skill:" : "Choose a skill you skipped at an earlier level:"}</p>
+          <div class="icons">${prev.map(o => skBtn(o, "12s", o.id === chosen, false, true)).join("")}</div>
+          ${sub ? optDetail({ ...sub, from: prev.find(x => x.id === sub.id)?.from }, t.lv, true) : csOn ? `<div class="d-act"><button type="button" class="btn small" data-clear="12">Clear choice</button></div>` : ""}</div>`;
+      } else {
+        const o = opts.find(o => o.id === f);
+        detail = o ? optDetail(o, t.lv, o.id === chosen) : `<p class="hint">Tap an icon to choose it.</p>`;
+      }
+    } else {
+      icons = opts.map(o => skBtn(o, t.lv, o.id === chosen, focus[t.lv] === o.id)).join("");
+      const o = opts.find(o => o.id === (focus[t.lv] || chosen));
+      detail = o ? optDetail(o, t.lv, o.id === chosen) : `<p class="hint">Tap an icon to choose it.</p>`;
+    }
+    return `<div class="lvrow" id="tier-${t.lv}">
+      <div class="rule"><span>Lvl ${t.lv}${t.kind === "master" ? " · Master class" : ""}</span>${STATUS_TEXT[s] ? `<span class="st ${s}">${STATUS_TEXT[s]}</span>` : ""}</div>
+      <div class="icons" role="group" aria-label="Level ${t.lv}: ${KIND_LABEL[t.kind]}">${icons}</div>
+      <div class="detail">${detail}</div></div>`;
+  }).join("")}</section>`;
+}
+
+function itemRow(it, opts = {}) {
+  const st = [it.d ? `Damage ${esc(it.d)}` : "", it.a ? `Armour ${esc(it.a)}` : "", it.g ? `Guard ${esc(it.g)}` : "", it.st ? esc(it.st) : ""].filter(Boolean).join(" · ");
+  const meta = [it.r, KIND_NAME[it.k], it.t != null && it.t > 0 ? `Tier ${it.t} (${TIERS[it.t - 1].name})` : ""].filter(Boolean).join(" · ");
+  return `<button type="button" class="gi${opts.on ? " on" : ""}" ${opts.attr || ""}>${img(it.ic, "ii")}<span>
+    <span class="n r-${esc(it.r || "Common")}">${esc(it.n)}</span>
+    <div class="meta">${esc(meta)}${it.how ? ` · ${esc(it.how)}` : ""}</div>
+    ${st ? `<div class="stats">${st}</div>` : ""}
+    ${(it.fx || []).map(([n, d]) => `<div class="fx"><i>${esc(n)}</i>: ${txt(d)}</div>`).join("")}
+    ${opts.why?.length ? `<div class="chips">${opts.rec ? `<span class="chip rec">Recommended</span>` : ""}${opts.why.map(w => `<span class="chip">${esc(w)}</span>`).join("")}</div>` : ""}
+  </span></button>`;
+}
+
+function renderEquip(cls, b) {
+  const g = GEAR[cls.id], gear = gearOf(b), prof = profile(cls, b), rec = styleRec(cls, b, prof);
+  const style = gear.style || rec?.style || (g.two ? "two" : "one");
+  const aw = armourWeights(cls, b), target = tierFor(b.level);
+  const slotHtml = SLOTS.map(([slot, label]) => {
+    const kinds = allowedKinds(cls, b, slot), it = ITEM[gear[slot]];
+    const dis = slot === "offhand" && !kinds.length;
+    return `<button type="button" class="slot" style="grid-area:${slot}" data-slot="${slot}" ${dis ? "disabled" : ""} aria-label="${label}${it ? ": " + esc(it.n) : ""}">
+      <span class="box${it ? " r-" + esc(it.r || "Common") : ""}">${it ? img(it.ic) : `<span class="tag">+</span>`}</span><small>${label}</small></button>`;
+  }).join("");
+  const equipped = SLOTS.map(([slot]) => ITEM[gear[slot]]).filter(Boolean);
+  const planSlots = [["weapon", "Weapon"], ["armour", "Armour"], ["helmet", "Helmet"], ...(allowedKinds(cls, b, "offhand").includes("shield") ? [["offhand", "Shield"]] : [])];
+  const planRows = TIERS.map(T => `<div class="plan-row${T.t === target ? " now" : ""}"><div class="lvl">Lvl ${T.lv}<br><span class="meta">${T.name}</span></div>${planSlots.map(([slot]) => {
+    let kinds = allowedKinds(cls, b, slot);
+    if (slot === "offhand") kinds = ["shield"];
+    if (slot === "armour" || slot === "helmet") kinds = [aw.best];
+    const it = bestForTier(cls, b, slot, kinds, T.t);
+    return `<div>${it ? `<button type="button" class="pc" data-info="${esc(it.n)}">${img(it.ic)}<span>${esc(it.n)}</span></button>` : `<span class="meta">—</span>`}</div>`;
+  }).join("")}</div>`).join("");
+  const uniques = ["weapon", "offhand", "helmet"].flatMap(slot => ranked(cls, b, slot, allowedKinds(cls, b, slot)).filter(x => x.i.r === "Legendary").slice(0, slot === "weapon" ? 2 : 1));
+
+  return `<section class="panel equip" aria-label="Equipment">
+    <h2 class="h2">Equipment</h2>
+    ${g.one && g.two ? `<div class="style" role="group" aria-label="Weapon style">
+      ${["two", "one"].map(s => `<button type="button" data-style="${s}" aria-pressed="${style === s}">${s === "two" ? KIND_NAME[g.two] : KIND_NAME[g.one] + " + off-hand"}<small class="${rec?.style === s ? "rec" : ""}">${rec?.style === s ? "Recommended" : s === "two" ? "More damage" : "Shield or off-hand item"}</small></button>`).join("")}
+    </div>${rec ? `<p class="why">${esc(rec.why)}</p>` : ""}` : ""}
+    <div class="doll">${slotHtml}</div>
+    <p class="note">Armour: ${aw.from ? `${esc(aw.from)} can wear ${aw.list.join(", ")} armour.` : "choose a specialisation at Lvl " + cls.tiers.find(t => t.kind === "spec").lv + " to see which armour weights this unit can wear."} Tap a slot to choose gear.</p>
+    ${equipped.length ? `<div class="gearlist">${equipped.map(it => itemRow(it, { attr: `data-slot="${it.s}"` })).join("")}</div>` : ""}
+    <h2 class="h2">Gear by level</h2>
+    <p class="note">Best crafted or faction item for each blacksmith tier that matches your picks. Tiers unlock as your blacksmith ranks up, so treat the levels as a rough guide.</p>
+    <div class="plan" style="--cols:${planSlots.length}"><div class="plan-row head"><div></div>${planSlots.map(([, l]) => `<div style="text-align:center">${l}</div>`).join("")}</div>${planRows}</div>
+    ${uniques.length ? `<h2 class="h2">Legendary items worth getting</h2><div class="gearlist">${uniques.map(x => itemRow(x.i, { attr: `data-info="${esc(x.i.n)}"`, why: x.why })).join("")}</div>` : ""}
+  </section>`;
+}
+
+function renderNotes(b) {
+  return `<section class="panel notes">
+    <h2 class="h2">Notes</h2>
+    <textarea class="box" id="notesIn" placeholder="Attributes to raise, profession, party role…">${esc(b.notes)}</textarea>
+    <h2 class="h2">Back up &amp; share</h2>
+    <p>Builds are saved on this device only. Copy a code to keep a backup or send a build to a friend, and paste a code to load it.</p>
+    <div class="row"><button class="btn small" type="button" id="copyOne">Copy this build</button><button class="btn small" type="button" id="copyAll">Copy everything</button></div>
+    <textarea class="box code" id="codeBox" placeholder="Paste a build code here, then tap Load" aria-label="Build code"></textarea>
+    <div class="row"><button class="btn small primary" type="button" id="loadCode">Load code</button>
+      <button class="btn small danger" type="button" id="delBtn">${delArm ? "Tap again to delete" : "Delete this build"}</button></div>
+    <div class="status" id="msg" role="status"></div>
+  </section>`;
+}
+
+function render() {
+  const b = cur(), cls = byId[b.cls], p = picksOf(b);
+  document.getElementById("buildSel").innerHTML = S.builds.map(x => `<option value="${x.id}"${x.id === b.id ? " selected" : ""}>${esc(x.name || "Unnamed")} · ${byId[x.cls].name}</option>`).join("");
+  const spec = cls.tiers.find(t => t.kind === "spec"), so = findOpt(cls, p[spec.lv]);
+  const mo = b.level >= 15 && findOpt(cls, p[15]);
+  const due = cls.tiers.filter(t => status(b, t) === "due"), upcoming = cls.tiers.find(t => t.lv > b.level);
+  let next = due.length ? `<strong>${due.length === 1 ? "1 choice" : due.length + " choices"} waiting:</strong> Lvl ${due.map(t => t.lv).join(", ")}`
+    : upcoming ? `Next choice at <b>Lvl ${upcoming.lv}</b> · ${KIND_LABEL[upcoming.kind]}` : "Every milestone reached.";
+  app.innerHTML = `
+  <section class="panel hero">
+    <div class="hero-top">
+      <div class="portrait">${img(cls.ic)}</div>
+      <div class="who">
+        <input id="nameIn" class="name" value="${esc(b.name)}" aria-label="Build name" placeholder="Name this mercenary">
+        <div class="classline">${img(cls.ic)}<span><b>${esc(mo?.name || so?.name || cls.name)}</b> lvl ${b.level}${so || mo ? ` · ${cls.name}` : ""}</span></div>
+      </div>
+    </div>
+    <div class="levelrow">
+      <div class="stepper" role="group" aria-label="Current level"><button type="button" id="lvDown" aria-label="Level down">−</button>
+        <output id="lvOut" aria-live="polite"><span>Level</span> ${b.level}</output><button type="button" id="lvUp" aria-label="Level up">+</button></div>
+      <div class="next">${due.length ? `<span class="points">${img(UP_IC)} ${due.length}</span> ` : ""}${next}</div>
+    </div>
+    <div class="classes" role="group" aria-label="Class">${CLASSES.map(c => `<button type="button" class="cls" data-cls="${c.id}" aria-pressed="${c.id === b.cls}" title="${c.name}" aria-label="${c.name}">${img(c.ic)}</button>`).join("")}</div>
+    <p class="blurb"><b style="font-style:normal;color:var(--ink);font-weight:600">${cls.name}</b> · ${esc(cls.role)} · ${esc(cls.weapon)} · ${esc(cls.stat)}. Starting skills: ${cls.start.map(esc).join(", ")}.</p>
+  </section>
+  <div class="tabs" role="tablist">${[["spec", "Specialisation"], ["equip", "Equipment"], ["notes", "Notes"]].map(([id, l]) => `<button type="button" class="tab" role="tab" data-tab="${id}" aria-selected="${S.tab === id}">${l}</button>`).join("")}</div>
+  ${S.tab === "equip" ? renderEquip(cls, b) : S.tab === "notes" ? renderNotes(b) : renderSpec(cls, b)}
+  <p class="foot">Skills, items and status effects from the Wartales Fandom wiki; specialisations, unlocks and crafting tiers from game.wiki (October 2026). Trust the game if numbers differ. Fan-made; Wartales is by Shiro Games.</p>`;
+}
+
+/* ---------- Sheets ---------- */
+const tip = document.getElementById("tip"), picker = document.getElementById("picker");
+function showTip(key) {
+  if (!GLOSS[key]) return;
+  document.getElementById("tipTitle").textContent = key;
+  document.getElementById("tipBody").innerHTML = `<p>${linkify(esc(GLOSS[key]))}</p>` + (key === "Censer" ? CENSERS.map(c =>
+    `<p><b>${esc(c.n)}</b> <i>(${esc(c.by)})</i><br>Inhalation: ${linkify(esc(c.inh))}<br>Purge: ${linkify(esc(c.pur))}</p>`).join("") : "");
+  tip.hidden = false;
+}
+function showItem(name) {
+  const it = ITEM[name]; if (!it) return;
+  const b = cur(), cls = byId[b.cls], kinds = allowedKinds(cls, b, it.s), ok = kinds.includes(it.k);
+  document.getElementById("tipTitle").textContent = it.n;
+  document.getElementById("tipBody").innerHTML = itemRow(it) + (ok ? `<div class="d-act"><button type="button" class="btn primary small" data-equip="${esc(it.n)}">Equip</button></div>` : "");
+  tip.hidden = false;
+}
+function openPicker(slot) {
+  pkSlot = slot; renderPicker(); picker.hidden = false; tip.hidden = true;
+}
+function renderPicker() {
+  const b = cur(), cls = byId[b.cls], gear = gearOf(b), kinds = allowedKinds(cls, b, pkSlot);
+  const list = ranked(cls, b, pkSlot, kinds);
+  const label = SLOTS.find(s => s[0] === pkSlot)[1];
+  document.getElementById("pkTitle").textContent = `Choose ${label.toLowerCase()}`;
+  const F = [["rec", "Recommended"], ["all", "All"], ["craft", "Crafted"], ["unique", "Unique"]];
+  document.getElementById("pkFilters").innerHTML = F.map(([id, l]) => `<button type="button" data-filter="${id}" aria-pressed="${pkFilter === id}">${l}</button>`).join("")
+    + (gear[pkSlot] ? `<button type="button" data-unequip="1">Remove item</button>` : "");
+  let shown = list;
+  if (pkFilter === "rec") shown = list.slice(0, 8);
+  if (pkFilter === "craft") shown = list.filter(x => /^Crafted|^Starting/.test(x.i.how || ""));
+  if (pkFilter === "unique") shown = list.filter(x => x.i.r === "Legendary" || /^Unique/.test(x.i.how || ""));
+  document.getElementById("pkBody").innerHTML = (kinds.length ? `<p class="note" style="margin:6px 0">${kinds.map(k => KIND_NAME[k]).join(", ")} · ${list.length} items</p>` : "")
+    + shown.map((x, n) => itemRow(x.i, { attr: `data-equip="${esc(x.i.n)}"`, why: x.why, rec: n < 3 && pkFilter !== "unique" && x.score > 2, on: gear[pkSlot] === x.i.n })).join("")
+    || `<p class="note">Nothing here for this class.</p>`;
+}
+
+/* ---------- Events ---------- */
+function say(t, err) { const m = document.getElementById("msg"); if (m) { m.textContent = t; m.className = "status" + (err ? " err" : ""); } }
+function copy(text) {
+  const box = document.getElementById("codeBox"); box.value = text;
+  const fallback = () => { box.select(); say("The code is in the box below. Select it and copy."); };
+  try { navigator.clipboard.writeText(text).then(() => say("Copied. Paste it anywhere to keep it."), fallback); } catch { fallback(); }
+}
+const keep = fn => { const y = window.scrollY; fn(); save(); render(); window.scrollTo(0, y); };
+
+document.addEventListener("click", e => {
+  const term = e.target.closest(".term");
+  if (term) { showTip(term.dataset.term); return; }
+  const close = e.target.closest("[data-close]");
+  if (close) { document.getElementById(close.dataset.close).hidden = true; return; }
+  const eq = e.target.closest("[data-equip]");
+  if (eq) { const it = ITEM[eq.dataset.equip], b = cur(); keep(() => { gearOf(b)[it.s] = it.n; }); picker.hidden = true; tip.hidden = true; return; }
+  if (e.target.closest("[data-unequip]")) { keep(() => { delete gearOf(cur())[pkSlot]; }); picker.hidden = true; return; }
+  const f = e.target.closest("[data-filter]");
+  if (f) { pkFilter = f.dataset.filter; renderPicker(); document.getElementById("pkBody").scrollTop = 0; return; }
+  if (!e.target.closest(".sheet")) { tip.hidden = true; if (!e.target.closest("[data-slot]")) picker.hidden = true; }
+});
+document.addEventListener("keydown", e => { if (e.key === "Escape") { tip.hidden = true; picker.hidden = true; } });
+
+app.addEventListener("click", e => {
+  if (e.target.closest(".term")) return;
+  const t = e.target.closest("button"); if (!t) return;
+  const b = cur(), cls = byId[b.cls], p = picksOf(b);
+  if (t.dataset.cls) return keep(() => { b.cls = t.dataset.cls; delArm = false; });
+  if (t.dataset.tab) return keep(() => { S.tab = t.dataset.tab; });
+  if (t.dataset.pick) {
+    const lv = t.dataset.pick, id = t.dataset.id;
+    if (lv === "12s") return keep(() => { p[12] = id; focus[12] = "cs"; });
+    if (id === "cs") return keep(() => { focus[12] = "cs"; if (!p[12] || optsFor(cls, cls.tiers.find(x => x.lv === 12)).some(o => o.id === p[12])) p[12] = "cs"; });
+    return keep(() => { p[lv] = id; focus[lv] = id; });
+  }
+  if (t.dataset.clear) return keep(() => { delete p[t.dataset.clear]; delete focus[t.dataset.clear]; });
+  if (t.dataset.style) return keep(() => { const g = gearOf(b); g.style = t.dataset.style; if (g.style === "two") delete g.offhand; const w = ITEM[g.weapon]; if (w && !allowedKinds(cls, b, "weapon").includes(w.k)) delete g.weapon; });
+  if (t.dataset.slot) return openPicker(t.dataset.slot);
+  if (t.dataset.info) return showItem(t.dataset.info);
+  switch (t.id) {
+    case "lvUp": return keep(() => { b.level = Math.min(20, b.level + 1); });
+    case "lvDown": return keep(() => { b.level = Math.max(1, b.level - 1); });
+    case "copyOne": return copy("WTB1:" + btoa(unescape(encodeURIComponent(JSON.stringify({ build: b, custom: { [b.cls]: S.custom[b.cls] || {} } })))));
+    case "copyAll": return copy("WTB1:" + btoa(unescape(encodeURIComponent(JSON.stringify(S)))));
+    case "loadCode": return loadCode();
+    case "delBtn":
+      if (!delArm) { delArm = true; return render(); }
+      delArm = false;
+      return keep(() => { S.builds = S.builds.filter(x => x.id !== b.id); if (!S.builds.length) S.builds.push(newBuild()); S.active = S.builds[0].id; });
+  }
+});
+app.addEventListener("input", e => {
+  const b = cur();
+  if (e.target.id === "nameIn") { b.name = e.target.value; save(); const o = document.querySelector(`#buildSel option[value="${b.id}"]`); if (o) o.textContent = `${b.name || "Unnamed"} · ${byId[b.cls].name}`; }
+  if (e.target.id === "notesIn") { b.notes = e.target.value; save(); }
+});
+function loadCode() {
+  const raw = document.getElementById("codeBox").value.trim().replace(/^WTB1:/, "");
+  try {
+    const data = JSON.parse(decodeURIComponent(escape(atob(raw))));
+    if (data.builds) { S = { tab: "spec", custom: {}, ...data }; for (const x of S.builds) x.gear ||= {}; }
+    else if (data.build && byId[data.build.cls]) {
+      const nb = { gear: {}, ...data.build, id: uid() }; S.builds.push(nb); S.active = nb.id;
+      for (const [cid, tiers] of Object.entries(data.custom || {})) for (const [lv, list] of Object.entries(tiers || {})) {
+        const dst = ((S.custom[cid] ||= {})[lv] ||= []);
+        for (const o of list) if (!dst.some(x => x.id === o.id)) dst.push(o);
+      }
+    } else throw 0;
+    save(); render(); say("Build loaded.");
+  } catch { say("That code didn't load. Paste the whole code, starting with WTB1:", true); }
+}
+function newBuild() { return { id: uid(), name: "New mercenary", cls: cur()?.cls || "warrior", level: 1, notes: "", picks: {}, gear: {} }; }
+document.getElementById("newBtn").addEventListener("click", () => { const nb = newBuild(); S.builds.push(nb); S.active = nb.id; S.tab = "spec"; delArm = false; save(); render(); window.scrollTo(0, 0); document.getElementById("nameIn").select(); });
+document.getElementById("buildSel").addEventListener("change", e => { S.active = e.target.value; delArm = false; save(); render(); window.scrollTo(0, 0); });
+
+render();
+</script>

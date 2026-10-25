@@ -196,6 +196,44 @@ main { max-width: 640px; margin: 0 auto; padding-block: 14px 48px;
 .job .mb { color: var(--green); font-size: .92rem; }
 .ranks { font-size: .8rem; color: var(--dim); margin-top: 2px; }
 
+/* Party and camp */
+.modes { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid #000; background: var(--tab); box-shadow: inset 0 0 0 1px rgba(255,255,255,.05); }
+.modes button { border: 0; background: none; padding: 9px 4px; font-size: 1.02rem; color: var(--muted); letter-spacing: .02em; }
+.modes button[aria-selected="true"] { color: var(--gold-hi); box-shadow: inset 0 -2px 0 var(--gold); background: rgba(198,165,100,.07); }
+.members { display: flex; flex-direction: column; }
+.member { display: grid; grid-template-columns: 44px 1fr; gap: 10px; align-items: center; padding: 8px 2px; border: 0; border-top: 1px solid rgba(255,255,255,.06); background: none; text-align: left; width: 100%; }
+.portrait.sm { width: 44px; height: 44px; }
+.portrait.sm img { width: 28px; height: 28px; }
+.mi .n { font-weight: 600; font-size: 1.05rem; }
+.mi .meta { display: block; }
+.roles { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.rl { display: flex; flex-direction: column; align-items: center; background: var(--tab); border: 1px solid var(--line); padding: 5px 2px; }
+.rl b { font-size: 1.25rem; font-weight: 600; color: var(--gold-hi); line-height: 1.1; font-variant-numeric: tabular-nums; }
+.rl span { font-size: .7rem; color: var(--muted); letter-spacing: .02em; }
+.rl.zero b { color: var(--dim); }
+.pro { color: var(--green); font-size: .94rem; margin: 2px 0 0; }
+.con { color: var(--red); font-size: .94rem; margin: 2px 0 0; }
+.lead { display: grid; grid-template-columns: 44px 1fr; gap: 10px; padding: 10px 2px; border-top: 1px solid rgba(255,255,255,.06); }
+.jobs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.jc { display: grid; grid-template-columns: 32px 1fr; gap: 6px; align-items: center; background: var(--tab); border: 1px solid var(--line); padding: 4px 6px; }
+.jc img { width: 32px; height: 32px; }
+.jc b { font-weight: 600; font-size: .95rem; display: block; line-height: 1.1; }
+.jc .meta { display: block; font-size: .8rem; line-height: 1.15; }
+.jc.zero { opacity: .55; }
+.structs { display: flex; flex-direction: column; }
+.st-row { padding: 9px 2px; border-top: 1px solid rgba(255,255,255,.06); }
+.st-row.off { opacity: .55; }
+.st-h { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.st-h b { font-weight: 600; font-size: 1.04rem; }
+.sti { width: 22px; height: 22px; }
+.own { width: 24px; height: 24px; border: 1px solid var(--line); background: var(--tab); color: var(--gold-hi); padding: 0; font-size: .9rem; line-height: 1; }
+.own[aria-pressed="true"] { border-color: var(--gold); }
+.tiers { margin-left: auto; display: inline-flex; gap: 3px; }
+.tiers button { border: 1px solid var(--line); background: var(--tab); font-size: .8rem; padding: 1px 6px; color: var(--muted); }
+.tiers button[aria-pressed="true"] { border-color: var(--gold); color: var(--gold-hi); }
+.who2 { margin-top: 4px; }
+select.as { margin-top: 5px; width: 100%; padding: 5px 8px; border: 1px solid var(--line); background: #11100f; }
+
 /* Notes tab */
 .notes { padding: 14px; display: flex; flex-direction: column; gap: 10px; }
 .notes p { margin: 0; color: var(--muted); font-size: .95rem; }
@@ -330,7 +368,7 @@ function sample() {
 let S;
 try { S = JSON.parse(localStorage.getItem(KEY)) || sample(); } catch { S = sample(); }
 if (!S.builds?.length) S = sample();
-S.custom ||= {}; S.tab ||= "spec";
+S.custom ||= {}; S.tab ||= "spec"; S.mode ||= "char"; S.party ||= {}; S.camp ||= { own: null, assign: {} }; S.camp.own ||= { fire: 1, tent: 1, pot: 1, workshop: 1, gurney: 1, dummy: 1, table: 1 }; S.camp.assign ||= {};
 S.builds = S.builds.filter(b => byId[b.cls]);
 if (!S.builds.length) S = sample();
 const ITEM = Object.fromEntries(ITEMS.map(i => [i.n, i]));
@@ -510,6 +548,183 @@ function renderStats(cls, b) {
   </section>`;
 }
 
+/* ---------- Party and camp ---------- */
+// Camp structures from game.wiki's Camping page. need: who can staff it; job: profession required; t: effect per tier
+const STRUCTS = [
+  { id: "table", n: "Strategy Table", need: "Captain or Lieutenant", rank: true, t: ["+1 Valor per rest when a Captain or Lieutenant staffs it. Unlocks battle Strategies (these work even unstaffed)."] },
+  { id: "banner", n: "Banner", need: "Lieutenant", lieut: true, t: ["Carried by your Lieutenant. Spend Influence for a one-rest buff."] },
+  { id: "pot", n: "Cooking Pot", need: "Cook", job: "Cook", t: ["−2 daily food", "−4 daily food; 15% Delicious chance", "−6 daily food; 30% Delicious chance"] },
+  { id: "workshop", n: "Workshop", need: "Tinkerer", job: "Tinkerer", t: ["2 Raw Materials per rest", "Also dismantles low-value gear", "Dismantles any gear"] },
+  { id: "lute", n: "Lute", need: "Bard", job: "Bard", t: ["+1 Willpower to every companion"] },
+  { id: "lectern", n: "Lectern", need: "Scholar", job: "Scholar", t: ["Knowledge per rest; study Antiquities", "+10% Knowledge; −1 day study time", "+20% Knowledge; −2 days study time"] },
+  { id: "chest", n: "Camp Chest", need: "Thief", job: "Thief", t: ["Slowly fences stolen items during rest"] },
+  { id: "hunt", n: "Hunting Gear", need: "Huntsman", job: "Huntsman", t: ["1 Pristine Fang per rest", "2 Fangs; small meat chance", "3 Fangs; high meat chance"] },
+  { id: "vat", n: "Brewing Vat", need: "Brewer", job: "Brewer", t: ["Brews fruit alcohol", "+1 simultaneous brew", "+2 simultaneous brews"] },
+  { id: "target", n: "Target", need: "Archer or Crossbowman", classes: ["archer", "crossbowman"], t: ["Earns Deftness during rest"] },
+  { id: "tent", n: "Tent", need: "Anyone", t: ["+1 Valor per rest; Max Valor +1", "Max Valor +2; +1 Valor", "Max Valor +3; +1 Valor; +1 Valor at battle start"] },
+  { id: "dummy", n: "Training Dummy", need: "Anyone", xp: true, t: ["XP per rest; +5% battle XP", "+6% battle XP; +20% rest XP", "+7% battle XP; Career Plans cost −50%"] },
+  { id: "gurney", n: "Gurney", need: "Anyone", t: ["Heals 1 Injury per rest", "Heals 1 Injury per rest", "Healthy units gain Drugged Up"] },
+  { id: "fire", n: "Campfire", need: "Anyone", t: ["+1 Happiness per rest", "+2 Happiness; burns wood into Coal", "+3 Happiness"] },
+  { id: "stool", n: "Watchkeeping Stool", need: "Anyone", t: ["Lowers the chance of an attack during rest and of prisoners escaping"] },
+  { id: "drying", n: "Meat Drying Rack", need: "Anyone", t: ["Cured meat and dried fish", "Also produces Oil", "Also produces Animal Fat"] },
+  { id: "tanning", n: "Tanning Rack", need: "Anyone", t: ["Leather from carcasses", "White Leather from ghostly carcasses", "+1 extra Leather"] },
+  { id: "stocks", n: "Stocks", need: "Anyone", t: ["Stops 1 prisoner escaping", "Holds 2 prisoners", "Holds 4 prisoners"] },
+  { id: "stake", n: "Impaling Stake", need: "Anyone", t: ["Influence from impaled corpses", "More Influence", "Even more Influence"] },
+  { id: "beehive", n: "Beehive", need: "Anyone", t: ["Produces honey from plants"] },
+  { id: "dice", n: "Dice", need: "Two companions", two: true, t: ["+2 Happiness per rest"] },
+];
+const STRUCT = Object.fromEntries(STRUCTS.map(s => [s.id, s]));
+const JOB_STRUCT = Object.fromEntries(STRUCTS.filter(s => s.job).map(s => [s.job, s]));
+const DEFAULT_OWN = { fire: 1, tent: 1, pot: 1, workshop: 1, gurney: 1, dummy: 1, table: 1 };
+const jobOf = b => b.job?.[b.cls];
+function roleOf(b) {
+  const cls = byId[b.cls], p = picksOf(b), spec = cls.tiers.find(t => t.kind === "spec"), so = findOpt(cls, p[spec.lv]);
+  const prof = profile(cls, b);
+  if (cls.id === "thaumaturge") return so?.name === "Healer" ? "Healer" : "Support";
+  if (["archer", "crossbowman"].includes(cls.id)) return "Ranged";
+  if (cls.id === "ranger") return "Flanker";
+  if (cls.id === "spearman") return so?.name === "Herald" ? "Support" : "Reach";
+  if ((so?.armor === "Heavy") || (prof["Guard"] || 0) + (prof["Protection"] || 0) >= 2) return "Tank";
+  return "Melee";
+}
+function titleOf(b) {
+  const cls = byId[b.cls], p = picksOf(b), spec = cls.tiers.find(t => t.kind === "spec");
+  return (b.level >= 15 && findOpt(cls, p[15])?.name) || findOpt(cls, p[spec.lv])?.name || cls.name;
+}
+function leaderScore(b, party, excludeId) {
+  const cls = byId[b.cls], why = [], warn = [];
+  let s = { warrior: 3, swordsman: 3.2, brute: 3, pugilist: 2.6, spearman: 3.6, thaumaturge: 3.2, archer: 1.6, crossbowman: 1.6, ranger: 0.6 }[cls.id];
+  if (s >= 3) why.push(cls.id === "spearman" ? "Fights from just behind the front line, surrounded by allies" : cls.id === "thaumaturge" ? "Supports from the middle of the group" : "Fights in the thick of the group");
+  if (cls.id === "ranger") warn.push("Rangers flank alone, away from the allies the skill needs");
+  if (["archer", "crossbowman"].includes(cls.id)) warn.push("Stays at the back, often out of reach of allies");
+  const ids = Object.values(picksOf(b));
+  if (ids.some(id => /valorous-support/.test(id))) { s += 1; why.push("Valorous Support keeps them next to allies"); }
+  if (ids.some(id => /lone-wolf/.test(id))) { s -= 3; warn.push("Lone Wolf wants no allies within 5 m"); }
+  const role = roleOf(b);
+  if (role === "Tank") { s += 1; why.push("Tough enough to stay alive in the middle"); }
+  s += b.level * 0.08;
+  const job = jobOf(b), st = JOB_STRUCT[job];
+  if (st) {
+    const others = party.filter(x => x.id !== b.id && jobOf(x) === job).length;
+    if (!others) { s -= 3; warn.push(`Your only ${job}: on the Strategy Table they can't staff the ${st.n}`); }
+    else s -= 0.4;
+  }
+  return { b, s, why, warn };
+}
+function leaderRecs(party) {
+  const cap = party.map(b => leaderScore(b, party)).sort((x, y) => y.s - x.s);
+  return cap;
+}
+function assignCamp(party) {
+  const own = S.camp.own, out = {}, used = new Set(), notes = [];
+  const free = () => party.filter(b => !used.has(b.id));
+  const put = (sid, b) => { (out[sid] ||= []).push(b.id); used.add(b.id); };
+  const capB = party.find(b => b.id === S.party.captain), ltB = party.find(b => b.id === S.party.lieutenant);
+  const onlyJob = b => b && JOB_STRUCT[jobOf(b)] && own[JOB_STRUCT[jobOf(b)].id] && !party.some(x => x.id !== b.id && jobOf(x) === jobOf(b));
+  if (own.banner && ltB) put("banner", ltB);
+  if (own.table) {
+    const cand = [capB, ltB].filter(b => b && !used.has(b.id));
+    const pick = cand.find(b => !onlyJob(b));
+    if (pick) put("table", pick);
+    else if (cand.length) notes.push(cand.map(b => `${esc(b.name)} is your only ${esc(jobOf(b))} and runs the ${JOB_STRUCT[jobOf(b)].n}`).join("; ") + `, so nobody ranked can staff the Strategy Table and it gives no Valor. Make someone without a camp job ${S.party.lieutenant ? "Captain" : "Lieutenant"}.`);
+    else notes.push("Choose a Captain or Lieutenant in Party to staff the Strategy Table.");
+  }
+  for (const s of STRUCTS.filter(s => s.job && own[s.id])) {
+    const b = free().filter(x => jobOf(x) === s.job).sort((x, y) => (x.id === S.party.captain) - (y.id === S.party.captain))[0];
+    if (b) put(s.id, b); else if (!party.some(x => jobOf(x) === s.job)) notes.push(`Nobody has the ${s.job} profession for the ${s.n}.`);
+  }
+  if (own.target) { const b = free().find(x => STRUCT.target.classes.includes(x.cls)); if (b) put("target", b); }
+  const anyOrder = ["tent", "dummy", "gurney", "fire", "stool", "drying", "tanning", "stocks", "stake", "beehive"];
+  for (const sid of anyOrder) {
+    if (!own[sid]) continue;
+    const pool = free(); if (!pool.length) break;
+    const b = sid === "dummy" ? pool.slice().sort((x, y) => x.level - y.level)[0] : pool[0];
+    put(sid, b);
+  }
+  if (own.dice && free().length >= 2) { const [a, c] = free(); put("dice", a); put("dice", c); }
+  return { out, notes, idle: free() };
+}
+const ESSENTIAL = [["Blacksmith", "forges your gear"], ["Cook", "runs the Cooking Pot to save food"], ["Tinkerer", "builds and upgrades camp tools"], ["Alchemist", "makes Rimesteel, Akhedian Steel and Vairmeil for better gear"], ["Scholar", "earns Knowledge for new recipes"], ["Bard", "the Lute gives everyone +1 Willpower"]];
+
+function renderParty() {
+  const party = S.builds;
+  const roles = {}; for (const b of party) { const r = roleOf(b); roles[r] = (roles[r] || 0) + 1; }
+  const front = (roles.Tank || 0) + (roles.Melee || 0), warns = [];
+  if (!roles.Tank) warns.push("No tank. A heavy-armour or Guard-focused frontliner keeps enemies off your damage dealers.");
+  if (front < 2 && party.length >= 4) warns.push("Fewer than two frontliners; enemies will reach your back line.");
+  if (!roles.Healer && party.length >= 4) warns.push("No dedicated healer. A Thaumaturge Healer adds strong healing beyond First Aid.");
+  if ((roles.Ranged || 0) > party.length / 2) warns.push("More than half the party fights at range; they need protection.");
+  const jobs = {}; for (const b of party) { const j = jobOf(b); if (j) (jobs[j] ||= []).push(b); }
+  const recs = leaderRecs(party);
+  const cap = party.find(b => b.id === S.party.captain), lt = party.find(b => b.id === S.party.lieutenant);
+  const memberCard = b => {
+    const cls = byId[b.cls], j = jobOf(b), rank = b.id === S.party.captain ? "Captain" : b.id === S.party.lieutenant ? "Lieutenant" : "";
+    return `<button type="button" class="member" data-open="${b.id}">
+      <span class="portrait sm">${img(cls.ic)}</span>
+      <span class="mi"><span class="n">${esc(b.name || "Unnamed")}</span>${rank ? ` <span class="chip rec">${rank}</span>` : ""}
+      <span class="meta">${esc(titleOf(b))} lvl ${b.level} · ${roleOf(b)}${j ? " · " + esc(j) : ""}</span></span></button>`;
+  };
+  const missing = ESSENTIAL.filter(([j]) => !jobs[j]);
+  const suggest = j => {
+    const pool = party.filter(b => !jobOf(b) || (jobs[jobOf(b)] || []).length > 1);
+    const best = pool.map(b => ({ b, s: jobAdvice(byId[b.cls], b).find(x => x.p.n === j)?.score ?? 0 })).sort((x, y) => y.s - x.s)[0];
+    return best ? ` Best candidate: <b>${esc(best.b.name)}</b>${jobOf(best.b) ? ` (a spare ${esc(jobOf(best.b))})` : " (no job yet)"}.` : "";
+  };
+  const leaderRow = (r, role) => `<div class="lead">
+    <span class="portrait sm">${img(byId[r.b.cls].ic)}</span>
+    <div><div><b>${esc(r.b.name)}</b> <span class="meta">${esc(titleOf(r.b))} lvl ${r.b.level}</span></div>
+    ${r.why.map(w => `<div class="pro">+ ${esc(w)}</div>`).join("")}${r.warn.map(w => `<div class="con">− ${esc(w)}</div>`).join("")}
+    <div class="row" style="margin-top:6px">${S.party.captain === r.b.id ? `<span class="chip rec">Captain</span>` : `<button type="button" class="btn small" data-rank="captain" data-id="${r.b.id}">Make Captain</button>`}
+    ${S.party.lieutenant === r.b.id ? `<span class="chip rec">Lieutenant</span>` : `<button type="button" class="btn small" data-rank="lieutenant" data-id="${r.b.id}">Make Lieutenant</button>`}</div></div></div>`;
+  return `<section class="panel equip" aria-label="Party">
+    <h2 class="h2">Your party · ${party.length} ${party.length === 1 ? "companion" : "companions"}</h2>
+    <div class="members">${party.map(memberCard).join("")}</div>
+    <div class="row" style="justify-content:center"><button type="button" class="btn small primary" id="addMember">+ Add companion</button></div>
+    <h2 class="h2">Team composition</h2>
+    <div class="roles">${["Tank", "Melee", "Reach", "Flanker", "Ranged", "Support", "Healer"].map(r => `<div class="rl${roles[r] ? "" : " zero"}"><b>${roles[r] || 0}</b><span>${r}</span></div>`).join("")}</div>
+    ${warns.length ? warns.map(w => `<p class="con">− ${esc(w)}</p>`).join("") : `<p class="pro" style="text-align:center">+ Balanced: frontliners, damage and support are covered.</p>`}
+    <h2 class="h2">Captain &amp; Lieutenant</h2>
+    <p class="note">The Captain's <b>Galvanize Troops</b> (once per battle, free) gives +1 Valor per ally around them, and the Lieutenant's <b>Tactical Order</b> makes nearby allies earn double Valor, so both belong in the middle of the fight. Either can staff the Strategy Table for +1 Valor per rest, which they can't do while running their profession's camp structure. Changing them later costs Influence.</p>
+    <p class="focus">Captain: <b>${cap ? esc(cap.name) : "not chosen"}</b> · Lieutenant: <b>${lt ? esc(lt.name) : "not chosen"}</b></p>
+    ${recs.slice(0, 4).map((r, i) => (i === 0 ? `<p class="note" style="text-align:center">Best candidates, in order</p>` : "") + leaderRow(r)).join("")}
+    <h2 class="h2">Professions</h2>
+    <div class="jobs">${PROFS.map(pf => `<div class="jc${jobs[pf.n] ? "" : " zero"}"><img src="${pf.icon}" alt=""><span><b>${esc(pf.n)}</b><span class="meta">${jobs[pf.n] ? jobs[pf.n].map(b => esc(b.name)).join(", ") : "—"}</span></span></div>`).join("")}</div>
+    ${missing.length ? missing.map(([j, why]) => `<p class="con">− No ${j}: ${why}.${suggest(j)}</p>`).join("") : `<p class="pro" style="text-align:center">+ All key camp professions are covered.</p>`}
+    ${Object.entries(jobs).filter(([, l]) => l.length > 1).map(([j, l]) => `<p class="note">${l.length} ${esc(j)}s: only one can staff the ${JOB_STRUCT[j] ? esc(JOB_STRUCT[j].n) : "station"}; the others mainly get the stat bonus.</p>`).join("")}
+  </section>`;
+}
+
+function renderCamp() {
+  const party = S.builds, own = S.camp.own, plan = assignCamp(party);
+  const assigned = S.camp.manual ? S.camp.assign : plan.out;
+  const nameOf = id => esc(party.find(b => b.id === id)?.name || "?");
+  const busy = {}; for (const [sid, ids] of Object.entries(assigned)) for (const id of ids || []) (busy[id] ||= []).push(sid);
+  const clash = Object.entries(busy).filter(([, l]) => l.length > 1);
+  const eligible = (s, b) => s.rank ? [S.party.captain, S.party.lieutenant].includes(b.id) : s.lieut ? b.id === S.party.lieutenant : s.job ? jobOf(b) === s.job : s.classes ? s.classes.includes(b.cls) : true;
+  const row = s => {
+    const tier = own[s.id] || 0, ids = assigned[s.id] || [];
+    const pf = s.job && PROFS.find(p => p.n === s.job);
+    return `<div class="st-row${tier ? "" : " off"}">
+      <div class="st-h"><button type="button" class="own" data-own="${s.id}" aria-pressed="${!!tier}" aria-label="${tier ? "Owned" : "Not owned"}: ${s.n}">${tier ? "✓" : ""}</button>
+        <b>${s.n}</b>${pf ? `<img src="${pf.icon}" alt="" class="sti">` : ""}
+        ${tier && s.t.length > 1 ? `<span class="tiers">${[1, 2, 3].map(n => `<button type="button" data-tier="${s.id}" data-n="${n}" aria-pressed="${tier === n}">T${n}</button>`).join("")}</span>` : ""}</div>
+      ${tier ? `<div class="meta">${esc(s.t[Math.min(tier, s.t.length) - 1])} · Staff: ${esc(s.need)}</div>
+        ${S.camp.manual ? `<select class="as" data-assign="${s.id}" aria-label="Assign ${s.n}"><option value="">— nobody —</option>${party.map(b => `<option value="${b.id}"${ids.includes(b.id) ? " selected" : ""}${eligible(s, b) ? "" : " disabled"}>${esc(b.name)}${eligible(s, b) ? "" : " (can't)"}</option>`).join("")}</select>`
+          : `<div class="who2">${ids.length ? ids.map(id => `<span class="chip rec">${nameOf(id)}</span>`).join(" ") : `<span class="meta">Nobody assigned</span>`}</div>`}` : `<div class="meta">${esc(s.t[0])}</div>`}
+    </div>`;
+  };
+  return `<section class="panel equip" aria-label="Camp">
+    <h2 class="h2">Campsite</h2>
+    <p class="note">Tick the structures you own and set their tier. Each companion can staff one structure per rest.</p>
+    <div class="style" role="group" aria-label="Assignment mode"><button type="button" data-camp="auto" aria-pressed="${!S.camp.manual}">Recommended<small>Assigned for you</small></button><button type="button" data-camp="manual" aria-pressed="${!!S.camp.manual}">Manual<small>Choose yourself</small></button></div>
+    ${(S.camp.manual ? [] : plan.notes).map(n => `<p class="con">− ${n}</p>`).join("")}
+    ${clash.map(([id, l]) => `<p class="con">− ${nameOf(id)} is assigned to ${l.map(s => STRUCT[s].n).join(" and ")}, but can only staff one.</p>`).join("")}
+    ${!S.camp.manual && plan.idle.length ? `<p class="note">Free companions: ${plan.idle.map(b => esc(b.name)).join(", ")}. Build or tick more structures to use them.</p>` : ""}
+    <div class="structs">${STRUCTS.map(row).join("")}</div>
+    <p class="note">Tip from game.wiki: upgrade the Tent (Valor), Cooking Pot (food) and Training Dummy (XP) first. The Dummy goes to your lowest-level companion.</p>
+  </section>`;
+}
+
 /* ---------- Render ---------- */
 const app = document.getElementById("app");
 const focus = {};   // per-row focused option (view state only)
@@ -624,21 +839,25 @@ function renderNotes(b) {
   </section>`;
 }
 
+const MODES = [["char", "Character"], ["party", "Party"], ["camp", "Camp"]];
 function render() {
   const b = cur(), cls = byId[b.cls], p = picksOf(b);
   document.getElementById("buildSel").innerHTML = S.builds.map(x => `<option value="${x.id}"${x.id === b.id ? " selected" : ""}>${esc(x.name || "Unnamed")} · ${byId[x.cls].name}</option>`).join("");
+  const modes = `<div class="modes" role="tablist">${MODES.map(([id, l]) => `<button type="button" role="tab" data-mode="${id}" aria-selected="${S.mode === id}">${l}</button>`).join("")}</div>`;
+  if (S.mode !== "char") { app.innerHTML = modes + (S.mode === "party" ? renderParty() : renderCamp()); return; }
   const spec = cls.tiers.find(t => t.kind === "spec"), so = findOpt(cls, p[spec.lv]);
   const mo = b.level >= 15 && findOpt(cls, p[15]);
   const due = cls.tiers.filter(t => status(b, t) === "due"), upcoming = cls.tiers.find(t => t.lv > b.level);
   let next = due.length ? `<strong>${due.length === 1 ? "1 choice" : due.length + " choices"} waiting:</strong> Lvl ${due.map(t => t.lv).join(", ")}`
     : upcoming ? `Next choice at <b>Lvl ${upcoming.lv}</b> · ${KIND_LABEL[upcoming.kind]}` : "Every milestone reached.";
-  app.innerHTML = `
+  const rank = b.id === S.party.captain ? "Captain" : b.id === S.party.lieutenant ? "Lieutenant" : "";
+  app.innerHTML = modes + `
   <section class="panel hero">
     <div class="hero-top">
       <div class="portrait">${img(cls.ic)}</div>
       <div class="who">
         <input id="nameIn" class="name" value="${esc(b.name)}" aria-label="Build name" placeholder="Name this mercenary">
-        <div class="classline">${img(cls.ic)}<span><b>${esc(mo?.name || so?.name || cls.name)}</b> lvl ${b.level}${so || mo ? ` · ${cls.name}` : ""}${b.job[cls.id] ? ` · ${esc(b.job[cls.id])}` : ""}</span></div>
+        ${rank ? `<span class="chip rec" style="float:right">${rank}</span>` : ""}<div class="classline">${img(cls.ic)}<span><b>${esc(mo?.name || so?.name || cls.name)}</b> lvl ${b.level}${so || mo ? ` · ${cls.name}` : ""}${b.job[cls.id] ? ` · ${esc(b.job[cls.id])}` : ""}</span></div>
       </div>
     </div>
     <div class="levelrow">
@@ -717,6 +936,13 @@ app.addEventListener("click", e => {
   if (e.target.closest(".term")) return;
   const t = e.target.closest("button"); if (!t) return;
   const b = cur(), cls = byId[b.cls], p = picksOf(b);
+  if (t.dataset.mode) return keep(() => { S.mode = t.dataset.mode; });
+  if (t.dataset.open) return keep(() => { S.active = t.dataset.open; S.mode = "char"; });
+  if (t.dataset.rank) return keep(() => { const other = t.dataset.rank === "captain" ? "lieutenant" : "captain"; if (S.party[other] === t.dataset.id) delete S.party[other]; S.party[t.dataset.rank] = t.dataset.id; });
+  if (t.id === "addMember") { const nb = newBuild(); S.builds.push(nb); S.active = nb.id; S.mode = "char"; S.tab = "spec"; save(); render(); window.scrollTo(0, 0); document.getElementById("nameIn").select(); return; }
+  if (t.dataset.own) return keep(() => { const o = S.camp.own; if (o[t.dataset.own]) delete o[t.dataset.own]; else o[t.dataset.own] = 1; });
+  if (t.dataset.tier) return keep(() => { S.camp.own[t.dataset.tier] = +t.dataset.n; });
+  if (t.dataset.camp) return keep(() => { S.camp.manual = t.dataset.camp === "manual"; if (S.camp.manual && !Object.keys(S.camp.assign).length) S.camp.assign = assignCamp(S.builds).out; });
   if (t.dataset.cls) return keep(() => { b.cls = t.dataset.cls; delArm = false; });
   if (t.dataset.tab) return keep(() => { S.tab = t.dataset.tab; });
   if (t.dataset.pick) {
@@ -739,8 +965,12 @@ app.addEventListener("click", e => {
     case "delBtn":
       if (!delArm) { delArm = true; return render(); }
       delArm = false;
-      return keep(() => { S.builds = S.builds.filter(x => x.id !== b.id); if (!S.builds.length) S.builds.push(newBuild()); S.active = S.builds[0].id; });
+      return keep(() => { for (const r of ["captain", "lieutenant"]) if (S.party[r] === b.id) delete S.party[r]; S.builds = S.builds.filter(x => x.id !== b.id); if (!S.builds.length) S.builds.push(newBuild()); S.active = S.builds[0].id; });
   }
+});
+app.addEventListener("change", e => {
+  const sid = e.target.dataset?.assign; if (!sid) return;
+  keep(() => { const a = S.camp.assign; for (const k of Object.keys(a)) a[k] = (a[k] || []).filter(id => id !== e.target.value || k === sid); a[sid] = e.target.value ? [e.target.value] : []; });
 });
 app.addEventListener("input", e => {
   const b = cur();

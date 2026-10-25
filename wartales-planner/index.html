@@ -1,0 +1,492 @@
+<title>Wartales Build Planner</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IM+Fell+English+SC&family=Alegreya+Sans:ital,wght@0,400;0,500;0,700;1,400&family=Alegreya+Sans+SC:wght@500;700&display=swap">
+<style>
+/* Layout: one narrow campaign-ledger column; a sticky roster bar, a level rail, then one card per milestone tier. */
+:root {
+  --bg: #e7e4dc;        /* weathered vellum, slightly green-grey */
+  --surface: #f3f1ec;
+  --sunk: #dad6cc;
+  --ink: #23261f;
+  --muted: #5e6157;
+  --line: #c4bfb2;
+  --brass: #8a5d12;     /* accent: tarnished brass */
+  --brass-soft: #ecdcb8;
+  --blood: #9b2c22;     /* "due now" */
+  --moss: #3f6b3a;      /* "picked" */
+  --display: "IM Fell English SC", "Iowan Old Style", Georgia, serif;
+  --body: "Alegreya Sans", "Gill Sans", "Segoe UI", system-ui, sans-serif;
+  --label: "Alegreya Sans SC", "Alegreya Sans", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #15180f; --surface: #1f231a; --sunk: #2a2f23; --ink: #e6e2d6; --muted: #a3a593;
+    --line: #3a3f31; --brass: #d9a64a; --brass-soft: #3b3020; --blood: #e0735f; --moss: #8cbf7c;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #15180f; --surface: #1f231a; --sunk: #2a2f23; --ink: #e6e2d6; --muted: #a3a593;
+  --line: #3a3f31; --brass: #d9a64a; --brass-soft: #3b3020; --blood: #e0735f; --moss: #8cbf7c;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.45; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--surface); }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
+
+.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--surface); border-bottom: 1px solid var(--line);
+  padding-block: 10px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.bar-in { max-width: 640px; margin: 0 auto; display: flex; gap: 8px; align-items: center; }
+.brand { font-family: var(--display); font-size: 1.25rem; line-height: 1; white-space: nowrap; margin-right: auto; }
+.brand small { display: block; font-family: var(--label); font-size: .68rem; letter-spacing: .08em; color: var(--muted); margin-top: 3px; }
+.bar select { min-width: 0; max-width: 46vw; padding: 7px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); }
+
+main { max-width: 640px; margin: 0 auto; padding-block: 16px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-direction: column; gap: 18px; }
+
+.btn { border: 1px solid var(--line); background: var(--surface); border-radius: 6px; padding: 7px 12px; font-family: var(--label); font-weight: 700; letter-spacing: .03em; }
+.btn.primary { background: var(--brass); border-color: var(--brass); color: var(--surface); }
+.btn.danger { color: var(--blood); }
+.btn.small { padding: 4px 9px; font-size: .85rem; }
+
+.eyebrow { font-family: var(--label); font-weight: 700; font-size: .78rem; letter-spacing: .1em; color: var(--muted); text-transform: lowercase; }
+
+/* Build header */
+.sheet { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+.namerow { display: flex; gap: 8px; align-items: center; }
+.name { flex: 1; min-width: 0; font-family: var(--display); font-size: 1.6rem; border: 0; border-bottom: 1px dashed var(--line); background: transparent; padding: 2px 0; }
+.title-line { color: var(--muted); font-size: .95rem; }
+.title-line b { color: var(--brass); font-weight: 700; }
+.classes { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px; }
+.cls { border: 1px solid var(--line); background: var(--bg); border-radius: 6px; padding: 8px 6px; text-align: left; display: flex; flex-direction: column; gap: 1px; }
+.cls b { font-family: var(--label); font-size: .95rem; }
+.cls span { font-size: .74rem; color: var(--muted); line-height: 1.2; }
+.cls[aria-pressed="true"] { border-color: var(--brass); background: var(--brass-soft); box-shadow: inset 0 0 0 1px var(--brass); }
+.blurb { font-size: .92rem; color: var(--muted); margin: 0; }
+
+.levelrow { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.stepper { display: flex; align-items: center; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.stepper button { width: 44px; height: 44px; border: 0; background: var(--bg); font-size: 1.4rem; }
+.stepper output { min-width: 64px; text-align: center; font-family: var(--display); font-size: 1.6rem; font-variant-numeric: tabular-nums; }
+.next { font-size: .95rem; flex: 1; min-width: 160px; }
+.next strong { color: var(--blood); }
+
+/* Rail of milestone levels */
+.rail { position: relative; display: flex; justify-content: space-between; padding: 6px 2px 0; }
+.rail::before { content: ""; position: absolute; left: 16px; right: 16px; top: 22px; height: 2px; background: var(--line); }
+.rail .fill { position: absolute; left: 16px; top: 22px; height: 2px; background: var(--brass); }
+.node { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; border: 0; background: none; padding: 0; width: 34px; }
+.node i { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-family: var(--label); font-weight: 700; font-size: .9rem;
+  border: 2px solid var(--line); background: var(--surface); font-variant-numeric: tabular-nums; }
+.node small { font-size: .68rem; color: var(--muted); white-space: nowrap; }
+.node.picked i { border-color: var(--moss); background: var(--moss); color: var(--surface); }
+.node.due i { border-color: var(--blood); color: var(--blood); }
+.node.reached:not(.picked):not(.due) i { border-color: var(--brass); }
+
+/* Tier cards */
+.tier { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; scroll-margin-top: 80px; }
+.tier.due { border-color: var(--blood); }
+.tier-h { display: flex; align-items: baseline; gap: 10px; padding: 12px 14px 8px; flex-wrap: wrap; }
+.lv { font-family: var(--display); font-size: 1.5rem; line-height: 1; font-variant-numeric: tabular-nums; }
+.kind { font-family: var(--label); font-weight: 700; letter-spacing: .03em; flex: 1; min-width: 0; }
+.pill { font-family: var(--label); font-weight: 700; font-size: .74rem; letter-spacing: .06em; padding: 2px 8px; border-radius: 999px; border: 1px solid currentColor; }
+.pill.picked { color: var(--moss); } .pill.due { color: var(--blood); } .pill.planned { color: var(--brass); } .pill.open { color: var(--muted); }
+.tier-note { padding: 0 14px 8px; margin: 0; font-size: .86rem; color: var(--muted); }
+.opts { display: flex; flex-direction: column; border-top: 1px solid var(--line); }
+.opt { display: grid; grid-template-columns: 22px 1fr; gap: 10px; text-align: left; border: 0; border-bottom: 1px solid var(--line); background: transparent; padding: 11px 14px; }
+.opt:last-child { border-bottom: 0; }
+.opt .mark { width: 18px; height: 18px; margin-top: 3px; border-radius: 50%; border: 2px solid var(--line); }
+.opt[aria-checked="true"] { background: var(--brass-soft); }
+.opt[aria-checked="true"] .mark { border-color: var(--brass); background: radial-gradient(circle, var(--brass) 45%, transparent 50%); }
+.opt-name { font-weight: 700; display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; }
+.tag { font-family: var(--label); font-size: .72rem; font-weight: 700; letter-spacing: .04em; color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; }
+.tag.vp { color: var(--brass); border-color: var(--brass); }
+.tag.hidden { color: var(--blood); border-color: var(--blood); }
+.opt-desc { font-size: .9rem; color: var(--muted); margin-top: 2px; }
+.opt-desc em { color: var(--ink); font-style: italic; }
+.empty { padding: 12px 14px; font-size: .9rem; color: var(--muted); border-top: 1px solid var(--line); }
+.subhead { padding: 8px 14px 4px; font-family: var(--label); font-weight: 700; font-size: .8rem; color: var(--muted); background: var(--sunk); letter-spacing: .05em; }
+
+details.add { border-top: 1px solid var(--line); }
+details.add summary { padding: 10px 14px; font-family: var(--label); font-weight: 700; color: var(--brass); cursor: pointer; font-size: .9rem; }
+.addform { display: flex; flex-direction: column; gap: 8px; padding: 0 14px 14px; }
+.addform input, .addform textarea, textarea.box { width: 100%; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); padding: 8px 10px; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+.panel h2 { font-family: var(--display); font-weight: 400; font-size: 1.35rem; margin: 0; }
+.panel p { margin: 0; font-size: .92rem; color: var(--muted); }
+textarea.box { min-height: 96px; resize: vertical; }
+textarea.code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .78rem; min-height: 80px; }
+.status { font-size: .88rem; color: var(--moss); min-height: 1.2em; }
+.status.err { color: var(--blood); }
+.foot { font-size: .82rem; color: var(--muted); }
+@media (prefers-reduced-motion: no-preference) { .tier, .opt { transition: background-color .15s, border-color .15s; } }
+</style>
+
+<header class="bar"><div class="bar-in">
+  <div class="brand">Wartales<small>build planner</small></div>
+  <label for="buildSel" class="eyebrow" hidden>Build</label>
+  <select id="buildSel" aria-label="Choose build"></select>
+  <button class="btn primary small" id="newBtn" type="button">+ New</button>
+</div></header>
+
+<main id="app"></main>
+
+<script>
+/* ---------- Game data (gathered from community guides; patches change things — edit or add options in-app) ---------- */
+const V = (id, name, desc, extra = {}) => ({ id, name, desc, ...extra });
+const VALOR = {
+  duel: V("v-duel", "Valorous Duel", "Gain 1 Valor Point when this unit engages an enemy. Good for units that disengage and re-engage often."),
+  support: V("v-support", "Valorous Support", "Gain 1 Valor Point when ending the turn next to an ally without being engaged. The easiest to trigger every round."),
+  chain: V("v-chain", "Valorous Chain", "Gain 1 Valor Point each time an attack hits several enemies."),
+  audacity: V("v-audacity", "Valorous Audacity", "Valor passive offered to Archers. Check the in-game text for the trigger.", { unc: true }),
+  victory: V("v-victory", "Valorous Victory", "Valor passive offered to Archers. Check the in-game text for the trigger.", { unc: true }),
+};
+const unc = o => ({ ...o, unc: true });
+
+const T = {
+  spec:    { label: "Specialization", short: "Spec", note: "Your first skill-granting pick also sets the unit's class title." },
+  valor:   { label: "Valor passive", short: "Valor", note: "How this unit earns Valor Points in combat." },
+  passive: { label: "Class passive", short: "Passive" },
+  skill:   { label: "Class skill", short: "Skill" },
+  utility: { label: "Utility", short: "Utility", note: "Usually a second-weapon, movement or utility option." },
+  legacy:  { label: "Class specialization", short: "Retrain", note: "Level 12 lets you take an option from an earlier tier that you skipped. Its own options, if any, are listed first." },
+  master:  { label: "Master class", short: "Master", note: "Advanced specialization unlocked at level 15." },
+};
+
+// meleeFirst: specialization at 2, valor at 3. Ranged/others: valor at 2, specialization at 3.
+function tiers(order, o) {
+  const lv = order === "meleeFirst"
+    ? [[2, "spec"], [3, "valor"]]
+    : [[2, "valor"], [3, "spec"]];
+  return [...lv, [5, "passive"], [8, "skill"], [10, "utility"], [12, "legacy"], [15, "master"]]
+    .map(([l, k]) => ({ lv: l, kind: k, opts: o[k] || [] }));
+}
+
+const CLASSES = [
+  { id: "warrior", name: "Warrior", role: "Axe · damage", blurb: "Hard-hitting axe fighter. Cleaves and burst damage.",
+    tiers: tiers("meleeFirst", {
+      spec: [
+        V("w-berserker", "Berserker", "<em>Rampage</em>: hits the target 3 times for 30–45% STR each. A critical hit grants Fury. Upgrade: ignores Guard.", { cost: "1 VP" }),
+        V("w-executioner", "Executioner", "<em>Cutting Maelstrom</em> (2 m area): about 35–40% STR damage to every unit in the area, and strikes once more for each enemy inside it. Upgrade: an extra attack on a Fatal Blow.", { cost: "2 VP" }),
+        V("w-barbarian", "Barbarian", "<em>Overbearing Strike</em>: 40–60% STR damage, doubled if the target has more HP than this unit.", { cost: "1 VP" }),
+        unc(V("w-sentinel", "Sentinel", "<em>Ovation</em>: a supportive front-line path. Check the in-game text for numbers.")),
+      ],
+      valor: [VALOR.duel, VALOR.chain],
+      passive: [
+        V("w-madness", "Madness", "+50% damage against badly wounded enemies (guides list 30% or 50% HP or less, depending on patch). Upgrade raises it to +75%."),
+        V("w-reckless", "Recklessness", "Your first attack in each fight deals +100% damage. Upgrade: +150%."),
+        unc(V("w-battlecry", "Battle Cry", "This unit and allies in the area gain Brutality for 2 rounds. Some guides list it at level 8.", { cost: "1 VP" })),
+        unc(V("w-lonewolf", "Lone Wolf", "Rewards fighting without allies nearby. Level not confirmed.")),
+        unc(V("w-firstblood", "First Blood", "Opening-strike bonus. Level not confirmed.")),
+      ],
+      skill: [ unc(V("w-challenge", "Challenging Shout", "Pulls enemies in so you can line up cleave attacks. Recommended in Neoseeker's Warrior builds.")) ],
+    }) },
+  { id: "swordsman", name: "Swordsman", role: "Sword · tank", blurb: "Durable sword-and-shield frontliner. Guards, taunts and ripostes.",
+    tiers: tiers("meleeFirst", {
+      spec: [
+        unc(V("s-protector", "Protector", "Defensive path built around protecting allies and holding the line.")),
+        unc(V("s-fighter", "Fighter", "Offensive one-handed path. Check the in-game text.")),
+        V("s-swordmaster", "Swordmaster", "<em>Laceration</em>: deals 80% damage twice to every enemy within 2 m.", { cost: "2 VP" }),
+        V("s-duellist", "Duellist", "<em>Final Blow</em>: 70–90% damage and grants Riposte. Upgrade: double damage if this unit already has Riposte.", { cost: "1 VP", hidden: "Unlocked at Bernna's Arena, Grinmeer" }),
+      ],
+      valor: [unc(VALOR.duel), unc(VALOR.support)],
+      passive: [
+        unc(V("s-defstance", "Defensive Stance", "Raises defence; a staple of tank builds.")),
+        unc(V("s-encourage", "Encouragement", "Supports nearby allies.")),
+        unc(V("s-taunt", "Taunt", "Forces enemies to attack this unit.")),
+      ],
+      master: [ V("s-master", "Swordsman (master)", "<em>Blinding Rush</em>: deals damage twice.", { cost: "2 VP" }) ],
+    }) },
+  { id: "brute", name: "Brute", role: "Mace · control", blurb: "Two-handed mace bruiser. Breaks Guard, weakens and staggers.",
+    tiers: tiers("meleeFirst", {
+      spec: [
+        V("b-destroyer", "Destroyer", "<em>Weakening Blow</em>: 80–100% STR damage and applies Weakening for 3 rounds.", { cost: "1 VP" }),
+        V("b-smasher", "Smasher", "Overhead strikes that ignore part of the target's Guard."),
+        V("b-vanguard", "Vanguard", "Charges across the battlefield into the enemy line."),
+        unc(V("b-brawler", "Brawler", "Named in community rankings. Check the in-game text.")),
+      ],
+      valor: [VALOR.duel],
+      passive: [ unc(V("b-opportunism", "Opportunism", "Punishes openings left by enemies.")), unc(V("b-guardbreaker", "Guard-Breaker", "Extra effect against guarded targets.")) ],
+      skill: [ unc(V("b-intervention", "Intervention", "Step in to protect an ally.")), unc(V("b-roar", "Deafening Roar", "Area shout that disrupts enemies.")) ],
+    }) },
+  { id: "archer", name: "Archer", role: "Bow · ranged", blurb: "Bow user. Long-range damage, knockback and animal companions.",
+    tiers: tiers("rangedFirst", {
+      valor: [VALOR.support, VALOR.audacity, VALOR.victory],
+      spec: [
+        V("a-hunter", "Hunter", "<em>Recoil Shot</em> (9 m): 70–100% damage, 2 m knockback, slows for 1 round. Upgrade: 80–120% damage, 3 m knockback.", { cost: "1 VP" }),
+        V("a-beastmaster", "Beastmaster", "<em>ATTACK!</em>: allied animals within 12 m counter-attack. Upgrade: grants Fury."),
+        V("a-infantryman", "Infantryman", "<em>Barrage</em>: hits several targets and slows the enemy advance.", { cost: "2 VP" }),
+        V("a-marksman", "Marksman", "<em>Aimed Shot</em> (8 m): 70% DEX damage, +5% for every metre between you and the target. Upgrade: adds crit scaling.", { cost: "2 VP", hidden: "Unlocked at Nairolf Arena, Ludern" }),
+      ],
+      passive: [
+        V("a-reinforced", "Reinforced Arrows", "Critical hits cause Bleeding. The usual pick for crit builds."),
+        V("a-beastmastery", "Beast Mastery", "Strengthens your animal companion. Pairs with Beastmaster."),
+      ],
+      skill: [
+        V("a-easyprey", "Easy Prey", "Pairs well with Infantryman."),
+        V("a-thrill", "Thrill of the Hunt", "Archery-focused pick."),
+        V("a-affinity", "Animal Affinity", "Pet-focused pick."),
+        V("a-bullseye", "Bullseye", "Precision shot option."),
+        V("a-cold", "Cold Blooded", "Calm, steady shooting option."),
+        V("a-taming", "Taming Arrow", "Animal-control option."),
+      ],
+      utility: [ V("a-anticipation", "Anticipation", "A way out when an enemy closes to melee range.") ],
+      master: [ V("a-virtuoso", "Virtuoso", "<em>Patient Shot</em>: guaranteed critical hit and applies Fragility for 1 round.") ],
+    }) },
+  { id: "ranger", name: "Ranger", role: "Dagger · flank", blurb: "Dagger-and-throwing skirmisher. Backstabs, poisons and bombs.",
+    tiers: tiers("rangedFirst", {
+      valor: [unc(VALOR.duel), unc(VALOR.support)],
+      spec: [
+        V("r-cutthroat", "Cutthroat", "<em>Frenzy</em>: hits an engaged enemy three times when attacking from behind. Often called the hardest-hitting path.", { cost: "2 VP" }),
+        V("r-strategist", "Strategist", "<em>Smoke Screen</em>: bomb that disengages every unit within 3 m and gives allies a free attack as enemies disengage."),
+        V("r-poisoner", "Poisoner", "<em>Poison Vial</em>: poisons every unit within 3 m of the impact. Best against high-HP enemies."),
+        V("r-assassin", "Assassin", "<em>Right Between the Eyes</em>: a throw that needs no off-hand weapon, with extra damage against Bleeding targets."),
+      ],
+    }) },
+  { id: "spearman", name: "Spearman", role: "Spear · reach", blurb: "Spear fighter. Reach attacks, zone control and ally buffs.",
+    tiers: tiers("rangedFirst", {
+      valor: [unc(VALOR.support), unc(VALOR.duel)],
+      spec: [
+        V("p-harpooner", "Harpooner", "<em>Piercing Throw</em> (8 m): 50% STR damage to every target in a line, and Bleeding on the first target hit. Upgrade: Bleeding on all targets.", { cost: "1 VP" }),
+        V("p-herald", "Herald", "Buffs allies with war cries."),
+        V("p-pikeman", "Pikeman", "<em>Spear Wall</em>: intercepts any enemy that enters this unit's zone of control."),
+        unc(V("p-halberdier", "Halberdier", "Hidden specialization. Check the in-game text.", { hidden: "Hidden specialization" })),
+      ],
+      legacy: [ unc(V("p-teamspirit", "Team Spirit", "Level 12 option named in Neoseeker builds.")), unc(V("p-fervent", "Fervent Support", "Level 12 option named in Neoseeker builds.")) ],
+      master: [ unc(V("p-standard", "Standard Bearer", "Spearman master class.")) ],
+    }) },
+  { id: "pugilist", name: "Pugilist", role: "Fists · stances", blurb: "Brawler with katars and spiked fists. Switches between offensive and defensive stances. Added free alongside Pirates of Belerion.",
+    tiers: tiers("meleeFirst", {}) },
+];
+const byId = Object.fromEntries(CLASSES.map(c => [c.id, c]));
+
+/* ---------- State ---------- */
+const KEY = "wartales-planner-v1";
+const uid = () => Math.random().toString(36).slice(2, 9);
+function sample() {
+  return {
+    active: "ex1",
+    builds: [
+      { id: "ex1", name: "Example: Berserker", cls: "warrior", level: 6, notes: "Example build. Rename it or tap + New to start your own.",
+        picks: { warrior: { 2: "w-berserker", 3: "v-duel", 5: "w-madness", 8: "w-challenge" } } },
+    ],
+    custom: {},
+  };
+}
+let S;
+try { S = JSON.parse(localStorage.getItem(KEY)) || sample(); } catch { S = sample(); }
+if (!S.builds?.length) S = sample();
+function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch {} }
+const cur = () => S.builds.find(b => b.id === S.active) || S.builds[0];
+const picksOf = b => (b.picks[b.cls] ||= {});
+
+function optsFor(cls, tier) {
+  const extra = (S.custom[cls.id] && S.custom[cls.id][tier.lv]) || [];
+  return [...tier.opts, ...extra.map(o => ({ ...o, custom: true }))];
+}
+function earlierOpts(cls, b) {
+  const p = picksOf(b);
+  return cls.tiers.filter(t => t.lv < 12).flatMap(t => optsFor(cls, t).filter(o => o.id !== p[t.lv]).map(o => ({ ...o, from: t.lv })));
+}
+function findOpt(cls, id) {
+  for (const t of cls.tiers) { const o = optsFor(cls, t).find(o => o.id === id); if (o) return o; }
+}
+
+/* ---------- Render ---------- */
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const app = document.getElementById("app");
+let delArm = false;
+
+function status(b, t) {
+  const p = picksOf(b)[t.lv];
+  if (b.level >= t.lv) return p ? "picked" : "due";
+  return p ? "planned" : "open";
+}
+const STATUS_TEXT = { picked: "Taken", due: "Pick now", planned: "Planned", open: "Not planned" };
+
+function optRow(o, selected, lv) {
+  const tags = [
+    o.cost ? `<span class="tag vp">${esc(o.cost)}</span>` : "",
+    o.hidden ? `<span class="tag hidden">hidden</span>` : "",
+    o.from ? `<span class="tag">from Lv ${o.from}</span>` : "",
+    o.unc ? `<span class="tag">unconfirmed</span>` : "",
+    o.custom ? `<span class="tag">yours</span>` : "",
+  ].join("");
+  const desc = (o.custom ? esc(o.desc) : (o.desc || "")) + (o.hidden ? ` <br><span>${esc(o.hidden)}.</span>` : "");
+  return `<button type="button" class="opt" role="radio" aria-checked="${selected}" data-pick="${lv}" data-id="${esc(o.id)}">
+    <span class="mark" aria-hidden="true"></span>
+    <span><span class="opt-name">${esc(o.name)} ${tags}</span>${desc ? `<div class="opt-desc">${desc}</div>` : ""}</span></button>`;
+}
+
+function render() {
+  const b = cur(), cls = byId[b.cls], p = picksOf(b);
+  // roster
+  const sel = document.getElementById("buildSel");
+  sel.innerHTML = S.builds.map(x => `<option value="${x.id}"${x.id === b.id ? " selected" : ""}>${esc(x.name || "Unnamed")} · ${byId[x.cls].name}</option>`).join("");
+
+  const specTier = cls.tiers.find(t => t.kind === "spec");
+  const specOpt = specTier && findOpt(cls, p[specTier.lv]);
+  const due = cls.tiers.filter(t => status(b, t) === "due");
+  const upcoming = cls.tiers.find(t => t.lv > b.level);
+  let next = due.length
+    ? `<strong>${due.length === 1 ? "1 pick" : due.length + " picks"} waiting:</strong> Lv ${due.map(t => t.lv).join(", ")}`
+    : upcoming ? `Next milestone: <b>Lv ${upcoming.lv}</b> · ${T[upcoming.kind].label}` : "All milestones reached.";
+  if (!due.length && upcoming && p[upcoming.lv]) next += ` → ${esc(findOpt(cls, p[upcoming.lv])?.name || "")}`;
+
+  const maxLv = 15, firstLv = cls.tiers[0].lv;
+  const pct = Math.max(0, Math.min(1, (b.level - firstLv) / (maxLv - firstLv)));
+
+  app.innerHTML = `
+  <section class="sheet" aria-label="Build">
+    <div class="namerow">
+      <input id="nameIn" class="name" value="${esc(b.name)}" aria-label="Build name" placeholder="Name this mercenary">
+    </div>
+    <div class="title-line">Class title: <b>${specOpt ? esc(specOpt.name) : cls.name}</b>${specOpt ? ` <span>(${cls.name})</span>` : ""}</div>
+    <div class="classes" role="group" aria-label="Class">
+      ${CLASSES.map(c => `<button type="button" class="cls" data-cls="${c.id}" aria-pressed="${c.id === b.cls}"><b>${c.name}</b><span>${c.role}</span></button>`).join("")}
+    </div>
+    <p class="blurb">${esc(cls.blurb)}</p>
+    <div class="levelrow">
+      <div class="stepper" role="group" aria-label="Current level">
+        <button type="button" id="lvDown" aria-label="Level down">−</button>
+        <output id="lvOut" aria-live="polite">${b.level}</output>
+        <button type="button" id="lvUp" aria-label="Level up">+</button>
+      </div>
+      <div class="next">${next}</div>
+    </div>
+    <div class="rail" aria-label="Milestones">
+      <span class="fill" style="width: calc((100% - 32px) * ${pct.toFixed(3)})"></span>
+      ${cls.tiers.map(t => { const s = status(b, t); return `<button type="button" class="node ${s}${b.level >= t.lv ? " reached" : ""}" data-jump="${t.lv}" aria-label="Level ${t.lv}, ${STATUS_TEXT[s]}"><i>${t.lv}</i><small>${T[t.kind].short}</small></button>`; }).join("")}
+    </div>
+  </section>
+
+  ${cls.tiers.map(t => {
+    const s = status(b, t), opts = optsFor(cls, t), chosen = p[t.lv];
+    let list = opts.map(o => optRow(o, o.id === chosen, t.lv)).join("");
+    if (t.kind === "legacy") {
+      const prev = earlierOpts(cls, b);
+      list += prev.length ? `<div class="subhead">Options you skipped earlier</div>` + prev.map(o => optRow(o, o.id === chosen, t.lv)).join("") : "";
+    }
+    if (!list) list = `<div class="empty">No options recorded for this tier yet. Add the ones you see on the level-up screen.</div>`;
+    return `<section class="tier ${s}" id="tier-${t.lv}">
+      <div class="tier-h"><span class="lv">Lv ${t.lv}</span><span class="kind">${T[t.kind].label}</span><span class="pill ${s}">${STATUS_TEXT[s]}</span></div>
+      ${T[t.kind].note ? `<p class="tier-note">${T[t.kind].note}</p>` : ""}
+      <div class="opts" role="radiogroup" aria-label="Level ${t.lv} options">${list}</div>
+      <details class="add"><summary>+ Add an option for Lv ${t.lv}</summary>
+        <form class="addform" data-add="${t.lv}">
+          <input name="n" id="add-n-${t.lv}" placeholder="Name, e.g. Bloodlust" required aria-label="Option name">
+          <input name="c" id="add-c-${t.lv}" placeholder="Cost (optional), e.g. 1 VP" aria-label="Cost">
+          <textarea name="d" id="add-d-${t.lv}" rows="2" placeholder="What it does" aria-label="Description"></textarea>
+          <div class="row"><button class="btn primary small" type="submit">Add to ${cls.name}</button>
+          ${(S.custom[cls.id]?.[t.lv] || []).length ? `<button class="btn small danger" type="button" data-clearcustom="${t.lv}">Remove my added options</button>` : ""}</div>
+        </form>
+      </details>
+    </section>`;
+  }).join("")}
+
+  <section class="sheet panel">
+    <h2>Notes</h2>
+    <textarea class="box" id="notesIn" placeholder="Gear, attributes to raise, profession, party role…">${esc(b.notes)}</textarea>
+  </section>
+
+  <section class="sheet panel">
+    <h2>Back up &amp; share</h2>
+    <p>Builds are saved on this device only. Copy the code to keep a backup or send a build to a friend, and paste a code to load it.</p>
+    <div class="row">
+      <button class="btn small" type="button" id="copyOne">Copy this build</button>
+      <button class="btn small" type="button" id="copyAll">Copy everything</button>
+    </div>
+    <textarea class="box code" id="codeBox" placeholder="Paste a build code here, then tap Load" aria-label="Build code"></textarea>
+    <div class="row">
+      <button class="btn small primary" type="button" id="loadCode">Load code</button>
+      <button class="btn small danger" type="button" id="delBtn">${delArm ? "Tap again to delete" : "Delete this build"}</button>
+    </div>
+    <div class="status" id="msg" role="status"></div>
+  </section>
+
+  <p class="foot">Skills and numbers come from community guides and can lag behind game patches. Options marked “unconfirmed” need checking against the in-game level-up screen. Wartales is a game by Shiro Games; this is a fan-made planner.</p>`;
+}
+
+/* ---------- Events ---------- */
+function say(t, err) { const m = document.getElementById("msg"); if (m) { m.textContent = t; m.className = "status" + (err ? " err" : ""); } }
+function copy(text) {
+  const box = document.getElementById("codeBox");
+  box.value = text;
+  const fallback = () => { box.select(); say("Code is in the box below. Select it and copy."); };
+  try { navigator.clipboard.writeText(text).then(() => say("Copied. Paste it anywhere to keep it."), fallback); } catch { fallback(); }
+}
+
+app.addEventListener("click", e => {
+  const t = e.target.closest("button"); if (!t) return;
+  const b = cur();
+  if (t.dataset.cls) { b.cls = t.dataset.cls; delArm = false; save(); render(); return; }
+  if (t.dataset.pick) {
+    const p = picksOf(b), lv = t.dataset.pick;
+    p[lv] = p[lv] === t.dataset.id ? undefined : t.dataset.id;
+    if (!p[lv]) delete p[lv];
+    save(); const y = window.scrollY; render(); window.scrollTo(0, y); return;
+  }
+  if (t.dataset.jump) { document.getElementById("tier-" + t.dataset.jump)?.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }); return; }
+  if (t.dataset.clearcustom) { const c = S.custom[b.cls]; if (c) { delete c[t.dataset.clearcustom]; } save(); render(); return; }
+  switch (t.id) {
+    case "lvUp": b.level = Math.min(20, b.level + 1); break;
+    case "lvDown": b.level = Math.max(1, b.level - 1); break;
+    case "copyOne": copy("WTB1:" + btoa(unescape(encodeURIComponent(JSON.stringify({ build: b, custom: { [b.cls]: S.custom[b.cls] || {} } }))))); return;
+    case "copyAll": copy("WTB1:" + btoa(unescape(encodeURIComponent(JSON.stringify(S))))); return;
+    case "loadCode": return loadCode();
+    case "delBtn":
+      if (!delArm) { delArm = true; render(); return; }
+      delArm = false;
+      S.builds = S.builds.filter(x => x.id !== b.id);
+      if (!S.builds.length) S.builds.push(newBuild());
+      S.active = S.builds[0].id; break;
+    default: return;
+  }
+  save(); const y = window.scrollY; render(); window.scrollTo(0, y);
+});
+
+app.addEventListener("input", e => {
+  const b = cur();
+  if (e.target.id === "nameIn") { b.name = e.target.value; save();
+    const o = document.querySelector(`#buildSel option[value="${b.id}"]`); if (o) o.textContent = `${b.name || "Unnamed"} · ${byId[b.cls].name}`; }
+  if (e.target.id === "notesIn") { b.notes = e.target.value; save(); }
+});
+
+app.addEventListener("submit", e => {
+  e.preventDefault();
+  const f = e.target, lv = f.dataset.add, b = cur();
+  const name = f.n.value.trim(); if (!name) return;
+  const c = (S.custom[b.cls] ||= {}); (c[lv] ||= []).push({ id: "u-" + uid(), name, cost: f.c.value.trim() || undefined, desc: f.d.value.trim() });
+  save(); render();
+  document.querySelector(`#tier-${lv} details`)?.setAttribute("open", "");
+});
+
+function loadCode() {
+  const raw = document.getElementById("codeBox").value.trim().replace(/^WTB1:/, "");
+  try {
+    const data = JSON.parse(decodeURIComponent(escape(atob(raw))));
+    if (data.builds) { S = data; say("Loaded " + data.builds.length + " builds."); }
+    else if (data.build && byId[data.build.cls]) {
+      const nb = { ...data.build, id: uid() }; S.builds.push(nb); S.active = nb.id;
+      for (const [cid, tiers] of Object.entries(data.custom || {})) for (const [lv, list] of Object.entries(tiers || {})) {
+        const dst = ((S.custom[cid] ||= {})[lv] ||= []);
+        for (const o of list) if (!dst.some(x => x.id === o.id)) dst.push(o);
+      }
+    } else throw 0;
+    save(); render(); say("Build loaded.");
+  } catch { say("That code didn't load. Paste the whole code, starting with WTB1:", true); }
+}
+
+function newBuild() { return { id: uid(), name: "New mercenary", cls: cur()?.cls || "warrior", level: 1, notes: "", picks: {} }; }
+document.getElementById("newBtn").addEventListener("click", () => { const nb = newBuild(); S.builds.push(nb); S.active = nb.id; delArm = false; save(); render(); window.scrollTo(0, 0); document.getElementById("nameIn").select(); });
+document.getElementById("buildSel").addEventListener("change", e => { S.active = e.target.value; delArm = false; save(); render(); window.scrollTo(0, 0); });
+
+render();
+</script>

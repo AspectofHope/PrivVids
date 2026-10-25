@@ -370,8 +370,8 @@ textarea.code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size
 
 <header class="bar"><div class="bar-in">
   <div class="brand">Wartales<small>Build planner</small></div>
-  <select id="buildSel" aria-label="Choose build"></select>
-  <button class="btn primary small" id="newBtn" type="button">+ New</button>
+  <select id="partySel" aria-label="Choose party"></select>
+  <button class="btn primary small" id="newBtn" type="button">+ New party</button>
 </div></header>
 
 <main id="app"></main>
@@ -491,35 +491,54 @@ const KEY = "wartales-planner-v1";
 const uid = () => Math.random().toString(36).slice(2, 9);
 function sample() {
   return {
-    active: "ex1", tab: "spec",
-    builds: [{ id: "ex1", name: "Example: Berserker", cls: "warrior", level: 6, notes: "Example build. Rename it or tap + New to start your own.",
+    active: "ex1", tab: "spec", party: { name: "My party" },
+    builds: [{ id: "ex1", name: "Example: Berserker", cls: "warrior", level: 6, notes: "Example build. Rename it, or add your own companions in Party.",
       picks: { warrior: { 2: "warrior-berserker", 3: "warrior-valorous-duel", 5: "warrior-recklessness", 8: "warrior-battle-cry" } }, gear: {} }],
     custom: {},
   };
 }
-let S;
-try { S = JSON.parse(localStorage.getItem(KEY)) || sample(); } catch { S = sample(); }
-if (!S.builds?.length) S = sample();
-S.custom ||= {}; S.tab ||= "spec"; S.mode ||= "char"; S.party ||= {}; S.camp ||= { own: null, assign: {} }; S.camp.own ||= { fire: 1, tent: 1, pot: 1, workshop: 1, gurney: 1, dummy: 1, table: 1 }; S.camp.assign ||= {}; S.shop ||= { list: [], have: {} };
-// Pinned recipes used to be { name: qty }; now each pin remembers which character it is for
-if (!S.shop.list) { S.shop.list = Object.entries(S.shop.pins || {}).map(([n, q]) => ({ n, b: null, q })); delete S.shop.pins; }
-S.builds = S.builds.filter(b => byId[b.cls]);
-if (!S.builds.length) S = sample();
 const ITEM = Object.fromEntries(ITEMS.map(i => [i.n, i]));
-for (const b of S.builds) {
-  b.gear ||= {}; b.job ||= {};
-  for (const [cid, p] of Object.entries(b.picks || {})) {
-    const c = byId[cid];
-    for (const lv of Object.keys(p)) if (!c || !(p[lv] === "cs" || findOpt(c, p[lv]))) delete p[lv];
+// Saved data: { parties: [party…], current: id }. Each party holds its companions, ranks, camp and shopping list.
+// Older saves (a single party at the top level) become the first party.
+let S = null;   // the active party; set once all parties are loaded
+function normParty(P) {
+  if (!P.builds?.length) Object.assign(P, sample());
+  P.custom ||= {}; P.tab ||= "spec"; P.mode ||= "char"; P.party ||= {}; P.camp ||= { own: null, assign: {} };
+  P.camp.own ||= { fire: 1, tent: 1, pot: 1, workshop: 1, gurney: 1, dummy: 1, table: 1 }; P.camp.assign ||= {}; P.shop ||= { list: [], have: {} };
+  // Pinned recipes used to be { name: qty }; now each pin remembers which character it is for
+  if (!P.shop.list) { P.shop.list = Object.entries(P.shop.pins || {}).map(([n, q]) => ({ n, b: null, q })); delete P.shop.pins; }
+  P.builds = P.builds.filter(b => byId[b.cls]);
+  if (!P.builds.length) Object.assign(P, sample(), { id: P.id });
+  for (const b of P.builds) {
+    b.gear ||= {}; b.job ||= {};
+    for (const [cid, pk] of Object.entries(b.picks || {})) {
+      const c = byId[cid];
+      for (const lv of Object.keys(pk)) if (!c || !(pk[lv] === "cs" || findOpt(c, pk[lv]))) delete pk[lv];
+    }
+    for (const g of Object.values(b.gear)) for (const k of Object.keys(g)) if (k !== "style" && !ITEM[g[k]]) delete g[k];
   }
-  for (const g of Object.values(b.gear)) for (const k of Object.keys(g)) if (k !== "style" && !ITEM[g[k]]) delete g[k];
+  return P;
 }
-function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch {} }
+let R = null;
+try { R = JSON.parse(localStorage.getItem(KEY)); } catch {}
+if (!R) R = { parties: [{ id: uid(), ...sample() }] };
+else if (!R.parties) R = { parties: [{ id: uid(), ...R }] };
+R.parties = (R.parties || []).filter(x => x && typeof x === "object");
+if (!R.parties.length) R.parties = [{ id: uid(), ...sample() }];
+R.parties.forEach(x => { x.id ||= uid(); normParty(x); });
+S = R.parties.find(x => x.id === R.current) || R.parties[0];
+R.current = S.id;
+function switchParty(id) { S = R.parties.find(x => x.id === id) || R.parties[0]; R.current = S.id; }
+function newParty() {
+  const P = normParty({ id: uid(), party: { name: "New party" }, mode: "party", tab: "spec", builds: [{ id: uid(), name: "New mercenary", cls: "warrior", level: 1, notes: "", picks: {}, gear: {}, job: {} }] });
+  P.active = P.builds[0].id; R.parties.push(P); switchParty(P.id); return P;
+}
+function save() { try { localStorage.setItem(KEY, JSON.stringify(R)); } catch {} }
 const cur = () => S.builds.find(b => b.id === S.active) || S.builds[0];
 const picksOf = b => (b.picks[b.cls] ||= {});
 const gearOf = b => (b.gear[b.cls] ||= {});
 function optsFor(cls, tier) {
-  const extra = (S.custom[cls.id] && S.custom[cls.id][tier.lv]) || [];
+  const extra = (S?.custom?.[cls.id] && S.custom[cls.id][tier.lv]) || [];
   return [...tier.opts, ...extra.map(o => ({ ...o, custom: true }))];
 }
 function findOpt(cls, id) {
@@ -832,6 +851,7 @@ function renderParty() {
     <div class="jobs">${PROFS.map(pf => `<div class="jc${jobs[pf.n] ? "" : " zero"}"><img src="${pf.icon}" alt=""><span><b>${esc(pf.n)}</b><span class="meta">${jobs[pf.n] ? jobs[pf.n].map(b => esc(b.name)).join(", ") : "—"}</span></span></div>`).join("")}</div>
     ${missing.length ? missing.map(([j, why]) => `<p class="con">− No ${j}: ${why}.${suggest(j)}</p>`).join("") : `<p class="pro" style="text-align:center">+ All key camp professions are covered.</p>`}
     ${Object.entries(jobs).filter(([, l]) => l.length > 1).map(([j, l]) => `<p class="note">${l.length} ${esc(j)}s: only one can staff the ${JOB_STRUCT[j] ? esc(JOB_STRUCT[j].n) : "station"}; the others mainly get the stat bonus.</p>`).join("")}
+    <div class="row" style="justify-content:flex-end;margin-top:6px"><button type="button" class="btn small danger" id="delParty">${delPartyArm ? "Tap again to delete this party" : "Delete this party"}</button></div>
   </section>`;
 }
 
@@ -1115,7 +1135,7 @@ function renderSheet(cls, b) {
 /* ---------- Render ---------- */
 const app = document.getElementById("app");
 const focus = {};   // per-row focused option (view state only)
-let delArm = false, pkSlot = null, pkFilter = "rec";
+let delArm = false, delPartyArm = false, pkSlot = null, pkFilter = "rec";
 const img = (i, cls = "", alt = "") => i != null && ICONS[i] ? `<img src="${ICONS[i]}" alt="${esc(alt)}" class="${cls}" loading="lazy">` : "";
 const costIcons = n => typeof n === "number" && n ? `<span class="cost" title="${n} Valor Point${n > 1 ? "s" : ""}">${img(VALOR_IC).repeat(n)}</span>` : "";
 
@@ -1227,7 +1247,7 @@ function renderNotes(b) {
     <textarea class="box" id="notesIn" placeholder="Attributes to raise, profession, party role…">${esc(b.notes)}</textarea>
     <h2 class="h2">Back up &amp; share</h2>
     <p>Builds are saved on this device only. Copy a code to keep a backup or send a build to a friend, and paste a code to load it.</p>
-    <div class="row"><button class="btn small" type="button" id="copyOne">Copy this build</button><button class="btn small" type="button" id="copyAll">Copy everything</button></div>
+    <div class="row"><button class="btn small" type="button" id="copyOne">Copy this build</button><button class="btn small" type="button" id="copyAll">Copy all parties</button></div>
     <textarea class="box code" id="codeBox" placeholder="Paste a build code here, then tap Load" aria-label="Build code"></textarea>
     <div class="row"><button class="btn small primary" type="button" id="loadCode">Load code</button>
       <button class="btn small danger" type="button" id="delBtn">${delArm ? "Tap again to delete" : "Delete this build"}</button></div>
@@ -1239,7 +1259,7 @@ const MODES = [["char", "Character"], ["party", "Party"], ["camp", "Camp"], ["cr
 function render() {
   if (drawerTab) setTimeout(renderDrawer, 0);
   const b = cur(), cls = byId[b.cls], p = picksOf(b);
-  document.getElementById("buildSel").innerHTML = S.builds.map(x => `<option value="${x.id}"${x.id === b.id ? " selected" : ""}>${esc(x.name || "Unnamed")} · ${byId[x.cls].name}</option>`).join("");
+  document.getElementById("partySel").innerHTML = R.parties.map(x => `<option value="${x.id}"${x.id === S.id ? " selected" : ""}>${esc(x.party?.name || "Unnamed party")} · ${x.builds.length}</option>`).join("");
   const modes = `<div class="modes" role="tablist">${MODES.map(([id, l]) => `<button type="button" role="tab" data-mode="${id}" aria-selected="${S.mode === id}">${l}</button>`).join("")}</div>`;
   if (S.mode !== "char") { app.innerHTML = decoHTML(modes + (S.mode === "party" ? renderParty() : S.mode === "craft" ? renderCrafting() : renderCamp())); return; }
   const spec = cls.tiers.find(t => t.kind === "spec"), so = findOpt(cls, p[spec.lv]);
@@ -1391,6 +1411,12 @@ app.addEventListener("click", e => {
   if (t.dataset.mat) return;
   if (t.dataset.open) return keep(() => { S.active = t.dataset.open; S.mode = "char"; });
   if (t.dataset.rank) return keep(() => { const other = t.dataset.rank === "captain" ? "lieutenant" : "captain"; if (S.party[other] === t.dataset.id) delete S.party[other]; S.party[t.dataset.rank] = t.dataset.id; });
+  if (t.id === "delParty") {
+    if (!delPartyArm) { delPartyArm = true; return render(); }
+    delPartyArm = false; R.parties = R.parties.filter(x => x.id !== S.id);
+    if (!R.parties.length) R.parties.push(normParty({ id: uid(), ...sample() }));
+    switchParty(R.parties[0].id); save(); render(); window.scrollTo(0, 0); return;
+  }
   if (t.id === "addMember") { const nb = newBuild(); S.builds.push(nb); S.active = nb.id; S.mode = "char"; S.tab = "spec"; save(); render(); window.scrollTo(0, 0); document.getElementById("nameIn").select(); return; }
   if (t.dataset.own) return keep(() => { const o = S.camp.own; if (o[t.dataset.own]) delete o[t.dataset.own]; else o[t.dataset.own] = 1; });
   if (t.dataset.tier) return keep(() => { S.camp.own[t.dataset.tier] = +t.dataset.n; });
@@ -1415,7 +1441,7 @@ app.addEventListener("click", e => {
     case "lvUp": return keep(() => { b.level = Math.min(20, b.level + 1); });
     case "lvDown": return keep(() => { b.level = Math.max(1, b.level - 1); });
     case "copyOne": return copy("WTB1:" + btoa(unescape(encodeURIComponent(JSON.stringify({ build: b, custom: { [b.cls]: S.custom[b.cls] || {} } })))));
-    case "copyAll": return copy("WTB1:" + btoa(unescape(encodeURIComponent(JSON.stringify(S)))));
+    case "copyAll": return copy("WTB1:" + btoa(unescape(encodeURIComponent(JSON.stringify(R)))));
     case "loadCode": return loadCode();
     case "delBtn":
       if (!delArm) { delArm = true; return render(); }
@@ -1450,15 +1476,16 @@ app.addEventListener("input", e => {
   }
 
   const b = cur();
-  if (e.target.id === "partyName") { S.party.name = e.target.value.trim() ? e.target.value : ""; save(); const h = e.target.nextElementSibling; if (h) h.textContent = `${S.party.name || "Your party"} · ${S.builds.length} ${S.builds.length === 1 ? "companion" : "companions"}`; return; }
-  if (e.target.id === "nameIn") { b.name = e.target.value; save(); const o = document.querySelector(`#buildSel option[value="${b.id}"]`); if (o) o.textContent = `${b.name || "Unnamed"} · ${byId[b.cls].name}`; }
+  if (e.target.id === "partyName") { S.party.name = e.target.value.trim() ? e.target.value : ""; save(); const o = document.querySelector(`#partySel option[value="${S.id}"]`); if (o) o.textContent = `${S.party.name || "Unnamed party"} · ${S.builds.length}`; const h = e.target.nextElementSibling; if (h) h.textContent = `${S.party.name || "Your party"} · ${S.builds.length} ${S.builds.length === 1 ? "companion" : "companions"}`; return; }
+  if (e.target.id === "nameIn") { b.name = e.target.value; save(); }
   if (e.target.id === "notesIn") { b.notes = e.target.value; save(); }
 });
 function loadCode() {
   const raw = document.getElementById("codeBox").value.trim().replace(/^WTB1:/, "");
   try {
     const data = JSON.parse(decodeURIComponent(escape(atob(raw))));
-    if (data.builds) { S = { tab: "spec", custom: {}, ...data }; for (const x of S.builds) { x.gear ||= {}; x.job ||= {}; } }
+    if (data.parties) { R = data; R.parties.forEach(x => { x.id ||= uid(); normParty(x); }); switchParty(R.current); say("Loaded " + R.parties.length + " parties."); }
+    else if (data.builds) { const P = normParty({ ...data, id: uid() }); R.parties.push(P); switchParty(P.id); }
     else if (data.build && byId[data.build.cls]) {
       const nb = { gear: {}, job: {}, ...data.build, id: uid() }; S.builds.push(nb); S.active = nb.id;
       for (const [cid, tiers] of Object.entries(data.custom || {})) for (const [lv, list] of Object.entries(tiers || {})) {
@@ -1470,8 +1497,8 @@ function loadCode() {
   } catch { say("That code didn't load. Paste the whole code, starting with WTB1:", true); }
 }
 function newBuild() { return { id: uid(), name: "New mercenary", cls: cur()?.cls || "warrior", level: 1, notes: "", picks: {}, gear: {}, job: {} }; }
-document.getElementById("newBtn").addEventListener("click", () => { const nb = newBuild(); S.builds.push(nb); S.active = nb.id; S.tab = "spec"; delArm = false; save(); render(); window.scrollTo(0, 0); document.getElementById("nameIn").select(); });
-document.getElementById("buildSel").addEventListener("change", e => { S.active = e.target.value; delArm = false; save(); render(); window.scrollTo(0, 0); });
+document.getElementById("newBtn").addEventListener("click", () => { newParty(); delArm = false; drawerTab = null; renderDrawer(); save(); render(); window.scrollTo(0, 0); document.getElementById("partyName")?.select(); });
+document.getElementById("partySel").addEventListener("change", e => { switchParty(e.target.value); delArm = false; save(); render(); if (drawerTab) renderDrawer(); window.scrollTo(0, 0); });
 
 render();
 </script>

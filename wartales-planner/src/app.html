@@ -314,14 +314,12 @@ img.pgi { width: 22px; height: 22px; filter: invert(.7) sepia(.2); }
 .dtabs.left button { border-left: 0; }
 .dtabs button[aria-pressed="true"] { background: #3a2e1c; }
 .dtabs.away { opacity: 0; pointer-events: none; }
-.drawer { position: fixed; top: 0; bottom: 0; right: 0; width: min(88vw, 380px); z-index: 25; background: linear-gradient(180deg, #24221f, #171614); border-left: 1px solid #000;
+.drawer { position: fixed; top: 0; bottom: 0; right: 0; width: min(calc(100vw - 46px), 380px); z-index: 25; background: linear-gradient(180deg, #24221f, #171614); border-left: 1px solid #000;
   box-shadow: inset 1px 0 0 rgba(255,255,255,.08), -10px 0 30px rgba(0,0,0,.6); display: flex; flex-direction: column; transform: translateX(105%); transition: transform .22s ease;
   padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); padding-right: env(safe-area-inset-right, 0px); }
 .drawer.left { right: auto; left: 0; border-left: 0; border-right: 1px solid #000; box-shadow: inset -1px 0 0 rgba(255,255,255,.08), 10px 0 30px rgba(0,0,0,.6);
   transform: translateX(-105%); padding-right: 0; padding-left: env(safe-area-inset-left, 0px); }
 .drawer.open { transform: none; }
-.dtabs.right.open { right: calc(min(88vw, 380px) + env(safe-area-inset-right, 0px)); }
-.dtabs.left.open { left: calc(min(88vw, 380px) + env(safe-area-inset-left, 0px)); }
 .drawer .sh-b { flex: 1; }
 .member.on { background: rgba(198,165,100,.1); box-shadow: inset 3px 0 0 var(--gold); }
 @media (prefers-reduced-motion: reduce) { .drawer, .dtabs { transition: none; } }
@@ -1264,11 +1262,9 @@ const drawer = document.getElementById("drawer");
 let drawerTab = null;
 function renderDrawer() {
   document.querySelectorAll("[data-drawer]").forEach(x => x.setAttribute("aria-pressed", x.dataset.drawer === drawerTab));
-  document.getElementById("dtabsL").classList.toggle("open", drawerTab === "party");
-  document.getElementById("dtabsR").classList.toggle("open", drawerTab === "shop");
-  // While one side's panel is open, hide the other side's tab
-  document.getElementById("dtabsL").classList.toggle("away", drawerTab === "shop");
-  document.getElementById("dtabsR").classList.toggle("away", drawerTab === "party");
+  // The open panel's own tab steps aside (close with × or by tapping outside); the other side's tab stays and switches panels
+  document.getElementById("dtabsL").classList.toggle("away", drawerTab === "party");
+  document.getElementById("dtabsR").classList.toggle("away", drawerTab === "shop");
   if (drawerTab) drawer.classList.toggle("left", drawerTab === "party");
   if (!drawerTab) { drawer.classList.remove("open"); setTimeout(() => { if (!drawerTab) drawer.hidden = true; }, 220); return; }
   drawer.hidden = false; requestAnimationFrame(() => drawer.classList.add("open"));

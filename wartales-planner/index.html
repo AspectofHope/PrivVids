@@ -673,7 +673,7 @@ function renderStats(cls, b) {
 const STRUCTS = [
   { id: "table", n: "Strategy Table", need: "Captain or Lieutenant", rank: true, t: ["+1 Valor per rest when a Captain or Lieutenant staffs it. Unlocks battle Strategies (these work even unstaffed)."] },
   { id: "banner", n: "Banner", need: "Lieutenant", lieut: true, t: ["Carried by your Lieutenant. Spend Influence for a one-rest buff."] },
-  { id: "pot", n: "Cooking Pot", need: "Cook", job: "Cook", t: ["−2 daily food", "−4 daily food; 15% Delicious chance", "−6 daily food; 30% Delicious chance"] },
+  { id: "pot", n: "Cooking Pot", need: "Cook", job: "Cook", t: ["Troop eats 2 less food per day (in total, not per companion)", "Troop eats 4 less food per day; 15% chance for Delicious meals", "Troop eats 6 less food per day; 30% chance for Delicious meals"] },
   { id: "workshop", n: "Workshop", need: "Tinkerer", job: "Tinkerer", t: ["2 Raw Materials per rest", "Also dismantles low-value gear", "Dismantles any gear"] },
   { id: "lute", n: "Lute", need: "Bard", job: "Bard", t: ["+1 Willpower to every companion"] },
   { id: "lectern", n: "Lectern", need: "Scholar", job: "Scholar", t: ["Knowledge per rest; study Antiquities", "+10% Knowledge; −1 day study time", "+20% Knowledge; −2 days study time"] },
@@ -847,6 +847,8 @@ function renderCamp() {
     ${(S.camp.manual ? [] : plan.notes).map(n => `<p class="con">− ${n}</p>`).join("")}
     ${clash.map(([id, l]) => `<p class="con">− ${nameOf(id)} is assigned to ${l.map(s => STRUCT[s].n).join(" and ")}, but can only staff one.</p>`).join("")}
     ${!S.camp.manual && plan.idle.length ? `<p class="note">Free companions: ${plan.idle.map(b => esc(b.name)).join(", ")}. Build or tick more structures to use them.</p>` : ""}
+    ${(() => { const potT = own.pot || 0, cook = (assigned.pot || []).some(id => jobOf(party.find(b => b.id === id) || {}) === "Cook"), cut = potT && cook ? [2, 4, 6][potT - 1] : 0, n = party.length;
+      return `<p class="focus">Daily food: ${n} ${n === 1 ? "companion" : "companions"} × 1${cut ? ` − ${cut} (Cooking Pot T${potT})` : ""} = <b>${Math.max(0, n - cut)}</b> per day</p>${potT && !cook ? `<p class="note">The Cooking Pot only saves food when a Cook staffs it.</p>` : ""}`; })()}
     <div class="structs">${STRUCTS.map(row).join("")}</div>
     <p class="note">Tip from game.wiki: upgrade the Tent (Valor), Cooking Pot (food) and Training Dummy (XP) first. The Dummy goes to your lowest-level companion.</p>
   </section>`;

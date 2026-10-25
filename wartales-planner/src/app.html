@@ -85,8 +85,8 @@ main { max-width: 640px; margin: 0 auto; padding-block: 14px 48px;
 .blurb { margin: 0; font-size: .95rem; color: var(--muted); font-style: italic; }
 
 /* Tab boxes like the game's panel titles */
-.tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
-.tab { background: var(--tab); border: 1px solid #000; box-shadow: inset 0 0 0 1px rgba(255,255,255,.05); padding: 9px 4px; font-size: 1.05rem; font-weight: 500; color: var(--muted); }
+.tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; }
+.tab { background: var(--tab); border: 1px solid #000; box-shadow: inset 0 0 0 1px rgba(255,255,255,.05); padding: 9px 2px; font-size: .98rem; font-weight: 500; color: var(--muted); line-height: 1.1; }
 .tab[aria-selected="true"] { color: var(--ink); box-shadow: inset 0 0 0 1px rgba(255,255,255,.08), inset 0 -2px 0 var(--gold); }
 
 /* Specialisation tree */
@@ -168,6 +168,32 @@ main { max-width: 640px; margin: 0 auto; padding-block: 14px 48px;
 .pc span { font-size: .74rem; line-height: 1.1; color: #cfc8b8; overflow-wrap: anywhere; }
 .note { margin: 0; font-size: .86rem; color: var(--dim); font-style: italic; }
 
+/* Stats & job tab */
+.stats-tab { padding: 12px; display: flex; flex-direction: column; gap: 12px; }
+.focus { margin: 0; text-align: center; font-size: 1.05rem; }
+.focus b { color: var(--gold-hi); font-weight: 600; }
+.prio { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; }
+.prio li { display: grid; grid-template-columns: 28px 1fr; gap: 10px; padding: 10px 2px; border-top: 1px solid rgba(255,255,255,.06); }
+.prio .num { width: 26px; height: 26px; transform: rotate(45deg); border: 1px solid var(--line); display: grid; place-items: center; margin-top: 3px; background: var(--tab); }
+.prio .num span { transform: rotate(-45deg); font-size: .85rem; font-variant-numeric: tabular-nums; }
+.prio .top { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.prio .top b { font-size: 1.08rem; font-weight: 600; }
+.lvl-chip { font-size: .74rem; letter-spacing: .06em; text-transform: uppercase; padding: 0 6px; border: 1px solid currentColor; }
+.lvl-chip.High { color: var(--gold-hi); } .lvl-chip.Medium { color: var(--muted); } .lvl-chip.Low { color: var(--dim); }
+.prio p { margin: 3px 0 0; font-size: .95rem; color: #cfc8b8; }
+.prio .tgt { color: var(--green); font-size: .9rem; margin-top: 3px; }
+.growth { display: flex; flex-direction: column; gap: 5px; }
+.gr { display: grid; grid-template-columns: 96px 1fr 40px; gap: 8px; align-items: center; font-size: .92rem; }
+.gr .bar { height: 8px; background: rgba(255,255,255,.06); }
+.gr .bar i { display: block; height: 100%; background: linear-gradient(90deg, #8a7448, var(--gold)); }
+.gr .v { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+.job { display: grid; grid-template-columns: 48px 1fr; gap: 10px; padding: 9px 2px; border: 0; border-top: 1px solid rgba(255,255,255,.06); background: none; text-align: left; width: 100%; }
+.job img { width: 48px; height: 48px; }
+.job.on { background: rgba(198,165,100,.1); box-shadow: inset 3px 0 0 var(--gold); }
+.job .n { font-weight: 600; font-size: 1.05rem; }
+.job .mb { color: var(--green); font-size: .92rem; }
+.ranks { font-size: .8rem; color: var(--dim); margin-top: 2px; }
+
 /* Notes tab */
 .notes { padding: 14px; display: flex; flex-direction: column; gap: 10px; }
 .notes p { margin: 0; color: var(--muted); font-size: .95rem; }
@@ -231,6 +257,13 @@ const GLOSS = __GLOSS__;
 const CENSERS = __CENSERS__;
 // Items: n name, s slot, k kind, r rarity, t crafting tier (1 Iron … 5 Vairmeil), how source, d damage, st stat bonus, a armour, g guard, fx effects, ic icon
 const ITEMS = __ITEMS__;
+// Professions: master-rank bonuses (m) and the bonus at each rank, from the Fandom wiki
+const PROFS = __PROFS__;
+// Level-up weights per class (Strength, Dexterity, Constitution, Critical Hit, Movement), from game.wiki
+const GROWTH = { swordsman: [23, 20, 45, 15, 0], warrior: [25, 12, 45, 15, 0], brute: [28, 12, 45, 15, 0], spearman: [23, 17, 45, 15, 0], archer: [12, 25, 45, 18, 0],
+  ranger: [15, 25, 35, 15, 10], pugilist: [12, 25, 45, 18, 0], crossbowman: [12, 25, 45, 18, 0], thaumaturge: [12, 25, 45, 18, 0] };
+// Recommended Movement from game.wiki: 18 melee, 20 Rangers, 16 Archers (used for the other ranged classes too)
+const MOVE_TARGET = { ranger: 20, archer: 16, crossbowman: 16, thaumaturge: 16 };
 
 const byId = Object.fromEntries(CLASSES.map(c => [c.id, c]));
 const KIND_LABEL = { spec: "Specialisation", valor: "Valor passive", t5: "Talent", t8: "Talent", utility: "Utility", legacy: "Bravery", master: "Master class" };
@@ -300,7 +333,7 @@ S.builds = S.builds.filter(b => byId[b.cls]);
 if (!S.builds.length) S = sample();
 const ITEM = Object.fromEntries(ITEMS.map(i => [i.n, i]));
 for (const b of S.builds) {
-  b.gear ||= {};
+  b.gear ||= {}; b.job ||= {};
   for (const [cid, p] of Object.entries(b.picks || {})) {
     const c = byId[cid];
     for (const lv of Object.keys(p)) if (!c || !(p[lv] === "cs" || findOpt(c, p[lv]))) delete p[lv];
@@ -402,6 +435,77 @@ function bestForTier(cls, b, slot, kinds, t) {
   const prof = profile(cls, b);
   const pool = ITEMS.filter(i => i.s === slot && kinds.includes(i.k) && i.t === t);
   return pool.map(i => ({ i, ...scoreItem(i, cls, b, prof, t) })).sort((x, y) => y.score - x.score)[0]?.i;
+}
+
+/* ---------- Stats and profession advice ---------- */
+const FRONTLINE = ["warrior", "swordsman", "brute", "spearman", "pugilist"];
+function statAdvice(cls, b) {
+  const prof = profile(cls, b), main = cls.stat, other = main === "Strength" ? "Dexterity" : "Strength";
+  const opts = chosenOpts(cls, b);
+  const named = re => opts.filter(o => re.test([o.desc, o.up].join(" "))).map(o => o.name);
+  const critPicks = named(/critical/i), tank = (prof["Guard"] || 0) + (prof["Protection"] || 0) + (prof["Riposte"] || 0);
+  const behind = prof["Attacks from behind"] || 0, front = FRONTLINE.includes(cls.id);
+  const aw = armourWeights(cls, b), moveTarget = MOVE_TARGET[cls.id] || 18;
+  const armourMove = aw.best === "light" ? 2 : aw.best === "heavy" ? -2 : 0;
+  const list = [];
+  list.push({ stat: main, level: "High", score: 10,
+    why: `All of the ${cls.name}'s damage skills scale with ${main}: each point adds 1 damage. It also raises ${main === "Strength" ? "Critical Damage" : "Critical Hit chance"} (up to +30%).`,
+    tgt: `Push it with every level-up you can choose (Career Plans), the ${main === "Strength" ? "Blacksmith" : "Alchemist"} profession and gear with +${main}.` });
+  const critHigh = critPicks.length > 0 || main === "Dexterity";
+  list.push({ stat: "Critical Hit", level: critPicks.length ? "High" : main === "Dexterity" ? "Medium" : "Low", score: critPicks.length ? 9 : main === "Dexterity" ? 6 : 3,
+    why: critPicks.length ? `Your picks ${critPicks.slice(0, 3).join(", ")} depend on critical hits.` : `Critical hits add ${main === "Strength" ? "your Critical Damage bonus" : "big spikes of damage"}, but none of your picks rely on them yet.`,
+    tgt: critHigh ? "Aim for 100% late game; anything above is wasted. Sources: Dexterity, Willpower (+1% per 5), the Tinkerer profession (+12%), gear and food." : "Gear and food bonuses are enough for now." });
+  list.push({ stat: "Willpower", level: front || tank ? "High" : "Medium", score: front || tank ? 8 : 5,
+    why: "At 15 Willpower a unit gets a death save, and every 5 points add 1% Critical Hit. Higher Willpower also fills troop Morale faster. It doesn't grow on level-up for most classes.",
+    tgt: "Get it to 15: base is 10, so +5 from the Scholar (+8), Angler or Bard (+4), traits, or the Bard's Lute (+1 for the whole troop)." });
+  const moveHigh = cls.id === "ranger" || behind > 0 || cls.id === "pugilist";
+  list.push({ stat: "Movement", level: moveHigh ? "High" : front ? "Medium" : "Low", score: moveHigh ? 8.5 : front ? 5.5 : 3,
+    why: moveHigh ? `${behind ? "Your picks reward attacks from behind, so you need to reach the enemy's back." : `The ${cls.name} has to get into position each turn.`}` : front ? "Melee units need to reach their targets, but armour matters more." : "Ranged units mostly stay put; a little extra helps reach good firing spots.",
+    tgt: `Target ${moveTarget}. Base is 10; ${aw.best} armour gives ${armourMove > 0 ? "+" : ""}${armourMove}.${cls.id === "ranger" ? " Rangers are the only class that can gain Movement on level-up." : ""}` });
+  list.push({ stat: "Constitution", level: tank ? "Medium" : "Low", score: tank ? 4.5 : 2,
+    why: "Each point gives 2 Health and some carrying capacity. Much combat damage is a percentage of maximum Health, so Armour and Guard protect you better than raw Health.",
+    tgt: tank ? "Your build tanks hits, so take it when nothing better is offered." : "It grows on its own; don't spend choices on it." });
+  list.push({ stat: other, level: "Low", score: 1,
+    why: other === "Dexterity" ? "Your skills don't scale with Dexterity; it only adds a little Critical Hit chance." : "Your skills don't scale with Strength; it only adds a little Critical Damage.",
+    tgt: "Skip it." });
+  return list.sort((a, b) => b.score - a.score);
+}
+function jobAdvice(cls, b) {
+  const prof = profile(cls, b), main = cls.stat === "Strength" ? "str" : "dex", other = main === "str" ? "dex" : "str";
+  const crit = (prof["Critical hits"] || 0) > 0, tank = (prof["Guard"] || 0) + (prof["Protection"] || 0) + (prof["Riposte"] || 0) > 0;
+  const NAME = { str: "Strength", dex: "Dexterity", con: "Constitution", wil: "Willpower" };
+  return PROFS.map(p => {
+    const m = p.m; let score = 0; const why = [];
+    if (m[main]) { score += m[main]; why.push(`+${m[main]} ${NAME[main]}, your main stat`); }
+    if (m.crit) { score += m.crit * (crit ? 0.95 : main === "dex" ? 0.55 : 0.4); why.push(`+${m.crit}% Critical Hit${crit ? " for your crit skills" : ""}`); }
+    if (m.wil > 0) { score += Math.min(m.wil, 5) * 0.9 + Math.max(m.wil - 5, 0) * 0.3; why.push(`+${m.wil} Willpower${m.wil >= 5 ? " reaches the 15 death save" : " toward the 15 death save"}`); }
+    if (m.wil < 0) { score += m.wil * 1.2; why.push(`${m.wil} Willpower`); }
+    if (m.con) { score += m.con * (tank ? 0.35 : 0.15); if (tank) why.push(`+${m.con} Constitution for a tank`); }
+    if (m[other]) score += m[other] * 0.15;
+    return { p, score, why };
+  }).sort((a, b) => b.score - a.score);
+}
+function renderStats(cls, b) {
+  const adv = statAdvice(cls, b), jobs = jobAdvice(cls, b), job = b.job[cls.id];
+  const g = GROWTH[cls.id], gl = ["Strength", "Dexterity", "Constitution", "Critical Hit", "Movement"], total = g.reduce((a, x) => a + x, 0);
+  return `<section class="panel stats-tab" aria-label="Stats and profession">
+    <h2 class="h2">Stats to focus on</h2>
+    <p class="focus">${adv.filter(a => a.level !== "Low").slice(0, 3).map(a => `<b>${a.stat}</b>`).join(" › ")}</p>
+    <ol class="prio">${adv.map((a, n) => `<li><span class="num"><span>${n + 1}</span></span><div>
+      <div class="top"><b>${a.stat}</b><span class="lvl-chip ${a.level}">${a.level}</span></div>
+      <p>${txt(a.why)}</p><div class="tgt">${txt(a.tgt)}</div></div></li>`).join("")}</ol>
+    <p class="note">Advice changes with your picks. Willpower and Movement targets come from game.wiki.</p>
+    <h2 class="h2">Level-up growth</h2>
+    <p class="note">How often a ${cls.name} gains each stat when levelling up. With a Career Plan (sold by some vendors) you choose the stat yourself for a little Influence: spend them on <b style="color:var(--gold-hi);font-style:normal">${adv[0].stat}</b>.</p>
+    <div class="growth">${g.map((w, i) => w ? `<div class="gr"><span>${gl[i]}</span><span class="bar"><i style="width:${(w / 45 * 100).toFixed(0)}%"></i></span><span class="v">${Math.round(w / total * 100)}%</span></div>` : "").join("")}</div>
+    <h2 class="h2">Profession</h2>
+    <p class="note">Only one profession is active at a time and switching keeps progress. Bonuses below are at Master rank. Your camp still needs a Blacksmith, Cook and Tinkerer, so give those jobs to whoever gains most from them.</p>
+    <div>${jobs.map((x, n) => `<button type="button" class="job${job === x.p.n ? " on" : ""}" data-job="${esc(x.p.n)}" aria-pressed="${job === x.p.n}">
+      <img src="${x.p.icon}" alt=""><span><span class="n">${esc(x.p.n)}</span>${job === x.p.n ? ` <span class="chip rec">Chosen</span>` : ""}
+      <div class="mb">${esc(x.p.ranks[4][0])}</div><div class="meta">${esc(x.p.act)}</div>
+      ${n < 3 || x.why.length ? `<div class="chips">${n < 3 ? `<span class="chip rec">${n === 0 ? "Best fit" : "Good fit"}</span>` : ""}${x.why.slice(0, 3).map(w => `<span class="chip">${esc(w)}</span>`).join("")}</div>` : ""}
+      <div class="ranks">${["Novice", "Apprentice", "Experienced", "Journeyman", "Master"].map((r, i) => `${r} ${esc(x.p.ranks[i][0])}`).join(" · ")}</div></span></button>`).join("")}</div>
+  </section>`;
 }
 
 /* ---------- Render ---------- */
@@ -532,7 +636,7 @@ function render() {
       <div class="portrait">${img(cls.ic)}</div>
       <div class="who">
         <input id="nameIn" class="name" value="${esc(b.name)}" aria-label="Build name" placeholder="Name this mercenary">
-        <div class="classline">${img(cls.ic)}<span><b>${esc(mo?.name || so?.name || cls.name)}</b> lvl ${b.level}${so || mo ? ` · ${cls.name}` : ""}</span></div>
+        <div class="classline">${img(cls.ic)}<span><b>${esc(mo?.name || so?.name || cls.name)}</b> lvl ${b.level}${so || mo ? ` · ${cls.name}` : ""}${b.job[cls.id] ? ` · ${esc(b.job[cls.id])}` : ""}</span></div>
       </div>
     </div>
     <div class="levelrow">
@@ -543,9 +647,9 @@ function render() {
     <div class="classes" role="group" aria-label="Class">${CLASSES.map(c => `<button type="button" class="cls" data-cls="${c.id}" aria-pressed="${c.id === b.cls}" title="${c.name}" aria-label="${c.name}">${img(c.ic)}</button>`).join("")}</div>
     <p class="blurb"><b style="font-style:normal;color:var(--ink);font-weight:600">${cls.name}</b> · ${esc(cls.role)} · ${esc(cls.weapon)} · ${esc(cls.stat)}. Starting skills: ${cls.start.map(esc).join(", ")}.</p>
   </section>
-  <div class="tabs" role="tablist">${[["spec", "Specialisation"], ["equip", "Equipment"], ["notes", "Notes"]].map(([id, l]) => `<button type="button" class="tab" role="tab" data-tab="${id}" aria-selected="${S.tab === id}">${l}</button>`).join("")}</div>
-  ${S.tab === "equip" ? renderEquip(cls, b) : S.tab === "notes" ? renderNotes(b) : renderSpec(cls, b)}
-  <p class="foot">Skills, items and status effects from the Wartales Fandom wiki; specialisations, unlocks and crafting tiers from game.wiki (October 2026). Trust the game if numbers differ. Fan-made; Wartales is by Shiro Games.</p>`;
+  <div class="tabs" role="tablist">${[["spec", "Skills"], ["equip", "Gear"], ["stats", "Stats & Job"], ["notes", "Notes"]].map(([id, l]) => `<button type="button" class="tab" role="tab" data-tab="${id}" aria-selected="${S.tab === id}">${l}</button>`).join("")}</div>
+  ${S.tab === "equip" ? renderEquip(cls, b) : S.tab === "stats" ? renderStats(cls, b) : S.tab === "notes" ? renderNotes(b) : renderSpec(cls, b)}
+  <p class="foot">Skills, items, professions and status effects from the Wartales Fandom wiki; specialisations, unlocks, crafting tiers and stat mechanics from game.wiki (October 2026). Trust the game if numbers differ. Fan-made; Wartales is by Shiro Games.</p>`;
 }
 
 /* ---------- Sheets ---------- */
@@ -622,6 +726,7 @@ app.addEventListener("click", e => {
   if (t.dataset.clear) return keep(() => { delete p[t.dataset.clear]; delete focus[t.dataset.clear]; });
   if (t.dataset.style) return keep(() => { const g = gearOf(b); g.style = t.dataset.style; if (g.style === "two") delete g.offhand; const w = ITEM[g.weapon]; if (w && !allowedKinds(cls, b, "weapon").includes(w.k)) delete g.weapon; });
   if (t.dataset.slot) return openPicker(t.dataset.slot);
+  if (t.dataset.job) return keep(() => { b.job[cls.id] = b.job[cls.id] === t.dataset.job ? undefined : t.dataset.job; });
   if (t.dataset.info) return showItem(t.dataset.info);
   switch (t.id) {
     case "lvUp": return keep(() => { b.level = Math.min(20, b.level + 1); });
@@ -644,9 +749,9 @@ function loadCode() {
   const raw = document.getElementById("codeBox").value.trim().replace(/^WTB1:/, "");
   try {
     const data = JSON.parse(decodeURIComponent(escape(atob(raw))));
-    if (data.builds) { S = { tab: "spec", custom: {}, ...data }; for (const x of S.builds) x.gear ||= {}; }
+    if (data.builds) { S = { tab: "spec", custom: {}, ...data }; for (const x of S.builds) { x.gear ||= {}; x.job ||= {}; } }
     else if (data.build && byId[data.build.cls]) {
-      const nb = { gear: {}, ...data.build, id: uid() }; S.builds.push(nb); S.active = nb.id;
+      const nb = { gear: {}, job: {}, ...data.build, id: uid() }; S.builds.push(nb); S.active = nb.id;
       for (const [cid, tiers] of Object.entries(data.custom || {})) for (const [lv, list] of Object.entries(tiers || {})) {
         const dst = ((S.custom[cid] ||= {})[lv] ||= []);
         for (const o of list) if (!dst.some(x => x.id === o.id)) dst.push(o);
@@ -655,7 +760,7 @@ function loadCode() {
     save(); render(); say("Build loaded.");
   } catch { say("That code didn't load. Paste the whole code, starting with WTB1:", true); }
 }
-function newBuild() { return { id: uid(), name: "New mercenary", cls: cur()?.cls || "warrior", level: 1, notes: "", picks: {}, gear: {} }; }
+function newBuild() { return { id: uid(), name: "New mercenary", cls: cur()?.cls || "warrior", level: 1, notes: "", picks: {}, gear: {}, job: {} }; }
 document.getElementById("newBtn").addEventListener("click", () => { const nb = newBuild(); S.builds.push(nb); S.active = nb.id; S.tab = "spec"; delArm = false; save(); render(); window.scrollTo(0, 0); document.getElementById("nameIn").select(); });
 document.getElementById("buildSel").addEventListener("change", e => { S.active = e.target.value; delArm = false; save(); render(); window.scrollTo(0, 0); });
 

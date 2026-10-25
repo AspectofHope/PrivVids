@@ -299,7 +299,12 @@ img.mi2 { width: 20px; height: 20px; object-fit: contain; vertical-align: -5px; 
 img.pgi { width: 22px; height: 22px; filter: invert(.7) sepia(.2); }
 .pin.sm { grid-template-columns: 36px 1fr auto; padding: 5px 2px; }
 .pin.sm img.ii { width: 36px; height: 44px; }
+.pv { margin: 6px 0 4px; }
+.total { text-align: center; line-height: 1.05; }
+.total b { font-size: 1.35rem; font-weight: 600; color: var(--gold-hi); display: block; font-variant-numeric: tabular-nums; }
+.total small { font-size: .72rem; color: var(--muted); }
 /* Right-edge drawer */
+@media (max-width: 720px) { main { padding-right: calc(max(16px, env(safe-area-inset-right, 0px)) + 22px); } }
 .dtabs { position: fixed; right: env(safe-area-inset-right, 0px); top: 42%; z-index: 26; transition: right .22s ease; display: flex; flex-direction: column; gap: 6px; }
 .dtabs button { writing-mode: vertical-rl; transform: rotate(180deg); padding: 12px 6px; background: var(--tab); border: 1px solid var(--gold); border-right: 0; color: var(--gold-hi); font-size: .88rem; letter-spacing: .06em; box-shadow: -3px 0 10px rgba(0,0,0,.5); }
 .dtabs button[aria-pressed="true"] { background: #3a2e1c; }
@@ -904,9 +909,22 @@ function renderShopTable() {
         <input type="number" min="0" inputmode="numeric" data-have="${esc(m)}" value="${h || ""}" placeholder="0" aria-label="${esc(m)} you have"><span class="get">${get ? get : "✓"}</span></div>`; }).join("")}</div>`;
 }
 function renderPins(compact) {
+  const view = S.shop.view || "char";
+  const toggle = S.shop.list.length ? `<div class="style pv" role="group" aria-label="Group pinned recipes"><button type="button" data-pinview="char" aria-pressed="${view === "char"}">By character<small>Who gets what</small></button><button type="button" data-pinview="item" aria-pressed="${view === "item"}">By item<small>How many to craft</small></button></div>` : "";
+  if (view === "item" && S.shop.list.length) {
+    const byItem = {};
+    for (const x of S.shop.list) (byItem[x.n] ||= []).push(x);
+    return toggle + Object.entries(byItem).map(([n, l]) => {
+      const it = ITEM[n], total = l.reduce((a, x) => a + x.q, 0);
+      const who = l.map(x => { const b = S.builds.find(y => y.id === x.b); return `${esc(b ? b.name : "Not assigned")}${x.q > 1 ? ` ×${x.q}` : ""}`; }).join(", ");
+      return `<div class="pin${compact ? " sm" : ""}">${img(it?.ic, "ii")}<div><span class="n r-${esc(it?.r || "Common")}">${esc(n)}</span>
+        <div class="meta">For ${who}</div>${compact ? "" : `<div class="meta">${esc(RECIPES[n]?.bs.replace(/\s*\(\d\)/, "") || "")} Blacksmith · each needs ${RECIPES[n].ing.map(([m, k]) => `${k} ${m}`).join(", ")}</div>`}</div>
+        <div class="total"><b>×${total}</b><small>to craft</small></div></div>`;
+    }).join("");
+  }
   const groups = [...S.builds.map(b => [b, S.shop.list.map((x, i) => ({ ...x, i })).filter(x => x.b === b.id)]), [null, S.shop.list.map((x, i) => ({ ...x, i })).filter(x => !S.builds.some(b => b.id === x.b))]].filter(([, l]) => l.length);
-  if (!groups.length) return `<p class="note">Nothing pinned yet. Open any craftable item (in Gear, tap a slot or a gear-by-level item) and tap <b>Pin recipe</b>.</p>`;
-  return groups.map(([b, l]) => `<div class="pgroup"><div class="pg-h">${b ? `${img(byId[b.cls].ic, "pgi")}<b>${esc(b.name)}</b> <span class="meta">${esc(titleOf(b))} lvl ${b.level}</span>` : `<b>Not assigned</b>`}</div>
+  if (!groups.length) return toggle + `<p class="note">Nothing pinned yet. Open any craftable item (in Gear, tap a slot or a gear-by-level item) and tap <b>Pin recipe</b>.</p>`;
+  return toggle + groups.map(([b, l]) => `<div class="pgroup"><div class="pg-h">${b ? `${img(byId[b.cls].ic, "pgi")}<b>${esc(b.name)}</b> <span class="meta">${esc(titleOf(b))} lvl ${b.level}</span>` : `<b>Not assigned</b>`}</div>
     ${l.map(x => { const it = ITEM[x.n]; return `<div class="pin${compact ? " sm" : ""}">${img(it?.ic, "ii")}<div><span class="n r-${esc(it?.r || "Common")}">${esc(x.n)}</span>
       ${compact ? "" : `<div class="meta">${esc(RECIPES[x.n]?.bs.replace(/\s*\(\d\)/, "") || "")} Blacksmith · ${RECIPES[x.n].ing.map(([m, k]) => `${k} ${m}`).join(", ")}</div>`}</div>
       <div class="qty"><button type="button" data-pinq="${x.i}" data-d="-1" aria-label="Fewer">−</button><span>${x.q}</span><button type="button" data-pinq="${x.i}" data-d="1" aria-label="More">+</button></div></div>`; }).join("")}</div>`).join("");
@@ -957,7 +975,7 @@ function renderCrafting() {
   const bsmith = S.builds.filter(b => jobOf(b) === "Blacksmith");
   const top = pins.map(x => RECIPES[x.n]?.bs.replace(/\s*\(\d\)/, "")).filter(Boolean).sort((a, b) => RANKS.indexOf(b) - RANKS.indexOf(a))[0];
   return `<section class="panel equip" aria-label="Crafting">
-    <h2 class="h2">Pinned recipes by character</h2>
+    <h2 class="h2">Pinned recipes</h2>
     ${renderPins(false)}
     ${pins.length ? `<p class="note">${bsmith.length ? `Your Blacksmith: ${bsmith.map(b => esc(b.name)).join(", ")}.` : "Nobody in your party is a Blacksmith yet."} ${top ? `These recipes need ${an(top)} <b>${esc(top)}</b> Blacksmith.` : ""}</p>
     <h2 class="h2">Shopping list</h2>
@@ -1316,6 +1334,8 @@ document.addEventListener("click", e => {
   if (mat && !e.target.closest("#app input")) { showMat(mat.dataset.mat); return; }
   const pin = e.target.closest("[data-pin]");
   if (pin) { const n = pin.dataset.pin, bid = cur().id, ex = pinFor(n, bid); if (ex) S.shop.list.splice(S.shop.list.indexOf(ex), 1); else S.shop.list.push({ n, b: bid, q: 1 }); save(); showItem(n); render(); return; }
+  const pv = e.target.closest("[data-pinview]");
+  if (pv) { S.shop.view = pv.dataset.pinview; save(); render(); if (drawerTab) renderDrawer(); return; }
   const pq = e.target.closest("[data-pinq]");
   if (pq) { const x = S.shop.list[+pq.dataset.pinq]; if (x) { x.q = Math.min(99, x.q + +pq.dataset.d); if (x.q <= 0) S.shop.list.splice(+pq.dataset.pinq, 1); } save(); render(); return; }
   const eq = e.target.closest("[data-equip]");

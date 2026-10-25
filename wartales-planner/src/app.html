@@ -270,7 +270,7 @@ select.as { margin-top: 5px; width: 100%; padding: 5px 8px; border: 1px solid va
 .lslot b { display: block; font-weight: 600; }
 .gi img.ii.lay { height: 48px; }
 .cs { display: flex; flex-direction: column; }
-.cs-row { display: grid; grid-template-columns: minmax(0, 1fr) 66px 48px 40px 56px; gap: 6px; align-items: center; padding: 5px 2px; border-top: 1px solid rgba(255,255,255,.06); font-variant-numeric: tabular-nums; }
+.cs-row { display: grid; grid-template-columns: minmax(0, 1fr) 66px 56px 76px; gap: 6px; align-items: center; padding: 5px 2px; border-top: 1px solid rgba(255,255,255,.06); font-variant-numeric: tabular-nums; }
 .cs-row.head { border-top: 0; color: var(--muted); font-size: .82rem; }
 .cs-row.main > span:first-child { color: var(--gold-hi); }
 .cs-row .v { text-align: right; }
@@ -283,6 +283,34 @@ img.ti { width: 26px; height: 26px; object-fit: contain; vertical-align: middle;
 
 img.cami { width: 34px; height: 34px; object-fit: contain; }
 img.mi2 { width: 20px; height: 20px; object-fit: contain; vertical-align: -5px; margin-right: 4px; }
+
+/* Planned gear */
+.slot .box.planned { opacity: .42; border-style: dashed; border-color: var(--gold); }
+.planned-row { opacity: .55; }
+.lrow { display: grid; grid-template-columns: 1fr auto; gap: 6px; align-items: center; }
+.lrow.planned .lslot { opacity: .5; border-style: dashed; }
+.cs-row .fut { color: var(--muted); }
+.cs-row .fut small { color: var(--green); font-size: .78rem; }
+.plan-ok { color: var(--gold-hi); font-size: .94rem; }
+/* Pins by character */
+.pgroup { border-top: 1px solid var(--line); padding-top: 6px; margin-top: 4px; }
+.pg-h { display: flex; align-items: center; gap: 8px; }
+.pg-h b { font-weight: 600; }
+img.pgi { width: 22px; height: 22px; filter: invert(.7) sepia(.2); }
+.pin.sm { grid-template-columns: 36px 1fr auto; padding: 5px 2px; }
+.pin.sm img.ii { width: 36px; height: 44px; }
+/* Right-edge drawer */
+.dtabs { position: fixed; right: env(safe-area-inset-right, 0px); top: 42%; z-index: 26; transition: right .22s ease; display: flex; flex-direction: column; gap: 6px; }
+.dtabs button { writing-mode: vertical-rl; transform: rotate(180deg); padding: 12px 6px; background: var(--tab); border: 1px solid var(--gold); border-right: 0; color: var(--gold-hi); font-size: .88rem; letter-spacing: .06em; box-shadow: -3px 0 10px rgba(0,0,0,.5); }
+.dtabs button[aria-pressed="true"] { background: #3a2e1c; }
+.drawer { position: fixed; top: 0; bottom: 0; right: 0; width: min(88vw, 380px); z-index: 25; background: linear-gradient(180deg, #24221f, #171614); border-left: 1px solid #000;
+  box-shadow: inset 1px 0 0 rgba(255,255,255,.08), -10px 0 30px rgba(0,0,0,.6); display: flex; flex-direction: column; transform: translateX(105%); transition: transform .22s ease;
+  padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); padding-right: env(safe-area-inset-right, 0px); }
+.drawer.open { transform: none; }
+.dtabs.open { right: calc(min(88vw, 380px) + env(safe-area-inset-right, 0px)); }
+.drawer .sh-b { flex: 1; }
+.member.on { background: rgba(198,165,100,.1); box-shadow: inset 3px 0 0 var(--gold); }
+@media (prefers-reduced-motion: reduce) { .drawer, .dtabs { transition: none; } }
 
 /* Notes tab */
 .notes { padding: 14px; display: flex; flex-direction: column; gap: 10px; }
@@ -323,6 +351,12 @@ textarea.code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size
 </div></header>
 
 <main id="app"></main>
+
+<div class="dtabs" id="dtabs"><button type="button" data-drawer="party" aria-label="Open party list">Party</button><button type="button" data-drawer="shop" aria-label="Open shopping list">Shopping</button></div>
+<aside id="drawer" class="drawer" aria-label="Side panel" hidden>
+  <div class="sh-h"><b id="drTitle"></b><button type="button" class="x" id="drClose" aria-label="Close">×</button></div>
+  <div class="sh-b" id="drBody"></div>
+</aside>
 
 <div id="picker" class="sheet" role="dialog" aria-labelledby="pkTitle" hidden>
   <div class="sheet-in">
@@ -437,7 +471,9 @@ function sample() {
 let S;
 try { S = JSON.parse(localStorage.getItem(KEY)) || sample(); } catch { S = sample(); }
 if (!S.builds?.length) S = sample();
-S.custom ||= {}; S.tab ||= "spec"; S.mode ||= "char"; S.party ||= {}; S.camp ||= { own: null, assign: {} }; S.camp.own ||= { fire: 1, tent: 1, pot: 1, workshop: 1, gurney: 1, dummy: 1, table: 1 }; S.camp.assign ||= {}; S.shop ||= { pins: {}, have: {} };
+S.custom ||= {}; S.tab ||= "spec"; S.mode ||= "char"; S.party ||= {}; S.camp ||= { own: null, assign: {} }; S.camp.own ||= { fire: 1, tent: 1, pot: 1, workshop: 1, gurney: 1, dummy: 1, table: 1 }; S.camp.assign ||= {}; S.shop ||= { list: [], have: {} };
+// Pinned recipes used to be { name: qty }; now each pin remembers which character it is for
+if (!S.shop.list) { S.shop.list = Object.entries(S.shop.pins || {}).map(([n, q]) => ({ n, b: null, q })); delete S.shop.pins; }
 S.builds = S.builds.filter(b => byId[b.cls]);
 if (!S.builds.length) S = sample();
 const ITEM = Object.fromEntries(ITEMS.map(i => [i.n, i]));
@@ -853,8 +889,27 @@ function showMat(m) {
 }
 function shoppingList() {
   const need = {};
-  for (const [n, q] of Object.entries(S.shop.pins)) { const r = RECIPES[n]; if (r) for (const [m, k] of r.ing) need[m] = (need[m] || 0) + k * q; }
+  for (const { n, q } of S.shop.list) { const r = RECIPES[n]; if (r) for (const [m, k] of r.ing) need[m] = (need[m] || 0) + k * q; }
   return need;
+}
+const pinFor = (n, bid) => S.shop.list.find(x => x.n === n && x.b === bid);
+// Planned (not yet owned) gear and layers, per class: { weapon: true, layer0: true, … }
+const planOf = b => (b.plan ||= {})[b.cls] ||= {};
+function renderShopTable() {
+  const need = shoppingList(), have = S.shop.have;
+  if (!Object.keys(need).length) return `<p class="note">Your shopping list is empty. Pin a recipe from any craftable item.</p>`;
+  return `<div class="shop"><div class="sh-row head"><span>Material</span><span>Need</span><span>Have</span><span>Get</span></div>
+    ${Object.entries(need).map(([m, n]) => { const h = +have[m] || 0, get = Math.max(0, n - h), d = MATS[m], who = d?.job && S.builds.some(b => jobOf(b) === d.job);
+      return `<div class="sh-row${get ? "" : " done"}"><button type="button" class="ing" data-mat="${esc(m)}">${SMALL.mat[m] ? `<img class="mi2" src="${SMALL.mat[m]}" alt="">` : ""}${esc(m)}${d?.job ? `<small>${who ? "your " : "needs "}${esc(d.job)}</small>` : ""}</button><span>${n}</span>
+        <input type="number" min="0" inputmode="numeric" data-have="${esc(m)}" value="${h || ""}" placeholder="0" aria-label="${esc(m)} you have"><span class="get">${get ? get : "✓"}</span></div>`; }).join("")}</div>`;
+}
+function renderPins(compact) {
+  const groups = [...S.builds.map(b => [b, S.shop.list.map((x, i) => ({ ...x, i })).filter(x => x.b === b.id)]), [null, S.shop.list.map((x, i) => ({ ...x, i })).filter(x => !S.builds.some(b => b.id === x.b))]].filter(([, l]) => l.length);
+  if (!groups.length) return `<p class="note">Nothing pinned yet. Open any craftable item (in Gear, tap a slot or a gear-by-level item) and tap <b>Pin recipe</b>.</p>`;
+  return groups.map(([b, l]) => `<div class="pgroup"><div class="pg-h">${b ? `${img(byId[b.cls].ic, "pgi")}<b>${esc(b.name)}</b> <span class="meta">${esc(titleOf(b))} lvl ${b.level}</span>` : `<b>Not assigned</b>`}</div>
+    ${l.map(x => { const it = ITEM[x.n]; return `<div class="pin${compact ? " sm" : ""}">${img(it?.ic, "ii")}<div><span class="n r-${esc(it?.r || "Common")}">${esc(x.n)}</span>
+      ${compact ? "" : `<div class="meta">${esc(RECIPES[x.n]?.bs.replace(/\s*\(\d\)/, "") || "")} Blacksmith · ${RECIPES[x.n].ing.map(([m, k]) => `${k} ${m}`).join(", ")}</div>`}</div>
+      <div class="qty"><button type="button" data-pinq="${x.i}" data-d="-1" aria-label="Fewer">−</button><span>${x.q}</span><button type="button" data-pinq="${x.i}" data-d="1" aria-label="More">+</button></div></div>`; }).join("")}</div>`).join("");
 }
 
 function recruitAdvice(party) {
@@ -898,23 +953,16 @@ function recruitAdvice(party) {
 }
 
 function renderCrafting() {
-  const pins = Object.entries(S.shop.pins), need = shoppingList(), have = S.shop.have;
+  const pins = S.shop.list;
   const bsmith = S.builds.filter(b => jobOf(b) === "Blacksmith");
-  const ranks = pins.map(([n]) => RECIPES[n]?.bs.replace(/\s*\(\d\)/, "")).filter(Boolean);
-  const top = ranks.sort((a, b) => RANKS.indexOf(b) - RANKS.indexOf(a))[0];
+  const top = pins.map(x => RECIPES[x.n]?.bs.replace(/\s*\(\d\)/, "")).filter(Boolean).sort((a, b) => RANKS.indexOf(b) - RANKS.indexOf(a))[0];
   return `<section class="panel equip" aria-label="Crafting">
-    <h2 class="h2">Pinned recipes</h2>
-    ${pins.length ? pins.map(([n, q]) => { const it = ITEM[n]; return `<div class="pin">${img(it?.ic, "ii")}<div><span class="n r-${esc(it?.r || "Common")}">${esc(n)}</span>
-      <div class="meta">${esc(RECIPES[n]?.bs.replace(/\s*\(\d\)/, "") || "")} Blacksmith · ${RECIPES[n].ing.map(([m, k]) => `${k} ${m}`).join(", ")}</div></div>
-      <div class="qty"><button type="button" data-pinq="${esc(n)}" data-d="-1" aria-label="Fewer">−</button><span>${q}</span><button type="button" data-pinq="${esc(n)}" data-d="1" aria-label="More">+</button></div></div>`; }).join("")
-      : `<p class="note">Nothing pinned yet. Open any craftable item (in Gear, tap a slot or a gear-by-level item) and tap <b>Pin recipe</b>.</p>`}
-    ${pins.length ? `<p class="note">${bsmith.length ? `Your Blacksmith: ${bsmith.map(b => esc(b.name)).join(", ")}.` : "Nobody in your party is a Blacksmith yet."} ${top ? `These recipes need ${an(top)} <b>${esc(top)}</b> Blacksmith.` : ""}</p>` : ""}
-    ${pins.length ? `<h2 class="h2">Shopping list</h2>
-    <p class="note">Enter how much you already have; the list shows what is still missing. Tap a material to see where to gather or buy it.</p>
-    <div class="shop"><div class="sh-row head"><span>Material</span><span>Need</span><span>Have</span><span>Get</span></div>
-    ${Object.entries(need).map(([m, n]) => { const h = +have[m] || 0, get = Math.max(0, n - h), d = MATS[m], who = d?.job && S.builds.some(b => jobOf(b) === d.job);
-      return `<div class="sh-row${get ? "" : " done"}"><button type="button" class="ing" data-mat="${esc(m)}">${SMALL.mat[m] ? `<img class="mi2" src="${SMALL.mat[m]}" alt="">` : ""}${esc(m)}${d?.job ? `<small>${who ? "your " : "needs "}${esc(d.job)}</small>` : ""}</button><span>${n}</span>
-        <input type="number" min="0" inputmode="numeric" data-have="${esc(m)}" value="${h || ""}" placeholder="0" aria-label="${esc(m)} you have"><span class="get">${get ? get : "✓"}</span></div>`; }).join("")}</div>
+    <h2 class="h2">Pinned recipes by character</h2>
+    ${renderPins(false)}
+    ${pins.length ? `<p class="note">${bsmith.length ? `Your Blacksmith: ${bsmith.map(b => esc(b.name)).join(", ")}.` : "Nobody in your party is a Blacksmith yet."} ${top ? `These recipes need ${an(top)} <b>${esc(top)}</b> Blacksmith.` : ""}</p>
+    <h2 class="h2">Shopping list</h2>
+    <p class="note">Enter how much you already have; the list shows what is still missing. Tap a material to see where to gather or buy it. The same list is in the drawer on the right edge.</p>
+    ${renderShopTable()}
     <div class="row" style="justify-content:flex-end"><button type="button" class="btn small danger" id="clearShop">Clear list</button></div>` : ""}
   </section>`;
 }
@@ -982,39 +1030,43 @@ function openLayerPicker(i) {
 function renderLayers(b) {
   const have = layersOf(b);
   if (!ITEM[gearOf(b).armour]) return `<p class="note">Equip body armour to add armour layers.</p>`;
-  return `<div class="layers">${[0, 1, 2].map(i => { const l = LAYER[have[i]]; return `<button type="button" class="lslot" data-lslot="${i}">
-    <span class="box sq">${l?.icon ? `<img src="${l.icon}" alt="">` : `<span class="tag">+</span>`}</span><span><b>${l ? esc(l.n) : `Layer ${i + 1}`}</b><span class="meta">${l ? esc(l.d) : "Empty"}</span></span></button>`; }).join("")}</div>
-    <p class="note">Armour holds up to 3 layers; how many slots yours has depends on its quality (superior forging and blacksmith alterations add slots).</p>`;
+  const pl = planOf(b);
+  return `<div class="layers">${[0, 1, 2].map(i => { const l = LAYER[have[i]]; return `<div class="lrow${l && pl["layer" + i] ? " planned" : ""}"><button type="button" class="lslot" data-lslot="${i}">
+    <span class="box sq">${l?.icon ? `<img src="${l.icon}" alt="">` : `<span class="tag">+</span>`}</span><span><b>${l ? esc(l.n) : `Layer ${i + 1}`}</b><span class="meta">${l ? esc(l.d) : "Empty"}</span></span></button>
+    ${l ? `<button type="button" class="btn small" data-ltoggle="${i}">${pl["layer" + i] ? "Planned" : "Have"}</button>` : ""}</div>`; }).join("")}</div>
+    <p class="note">Armour layers are the reinforced plates and layers you fit onto body armour. Armour holds up to 3; how many slots yours has depends on its quality (superior forging and blacksmith alterations add slots). Tap Planned/Have to switch.</p>`;
 }
 function sheetTotals(b) {
-  const cls = byId[b.cls], base = (b.base ||= {})[b.cls] ||= {};
-  const gear = {}, add = (t, v) => { for (const [k, x] of Object.entries(v)) t[k] = (t[k] || 0) + (+x || 0); };
-  for (const [slot] of SLOTS) { const s = itemStats(b, slot); if (s) add(gear, s.vals); }
-  for (const n of layersOf(b)) if (LAYER[n]) add(gear, parseStats(LAYER[n].d));
+  const cls = byId[b.cls], base = (b.base ||= {})[b.cls] ||= {}, pl = planOf(b);
+  const gear = {}, plan = {}, add = (t, v) => { for (const [k, x] of Object.entries(v)) t[k] = (t[k] || 0) + (+x || 0); };
+  for (const [slot] of SLOTS) { const s = itemStats(b, slot); if (s) add(pl[slot] ? plan : gear, s.vals); }
+  layersOf(b).forEach((n, i) => { if (LAYER[n]) add(pl["layer" + i] ? plan : gear, parseStats(LAYER[n].d)); });
   const job = {}, pf = PROFS.find(p => p.n === jobOf(b)), rank = (b.rank ||= {})[b.cls] ?? 4;
   if (pf) add(job, parseStats(pf.ranks[rank][0].replace(/\bSTR\b/, "Strength").replace(/\bDEX\b/, "Dexterity").replace(/\bCON\b/, "Constitution").replace(/\bWIL\b/, "Willpower").replace(/Crit Hit/, "Critical Hit")));
-  return { base, gear, job, rank, pf };
+  return { base, gear, plan, job, rank, pf };
 }
 function renderSheet(cls, b) {
-  const { base, gear, job, rank, pf } = sheetTotals(b);
-  const tot = k => (+base[k] || 0) + (gear[k] || 0) + (job[k] || 0);
+  const { base, gear, plan, job, rank, pf } = sheetTotals(b);
+  const now = k => (+base[k] || 0) + (gear[k] || 0) + (job[k] || 0), fut = k => now(k) + (plan[k] || 0);
   const moveTarget = MOVE_TARGET[cls.id] || 18, main = cls.stat === "Strength" ? "str" : "dex";
-  const checks = [
-    [`Willpower ${tot("wil")} / 15`, tot("wil") >= 15, "15 Willpower gives a death save"],
-    [`Movement ${tot("mv")} / ${moveTarget}`, tot("mv") >= moveTarget, `target for a ${cls.name}`],
-    [`Critical Hit ${tot("crit")}%`, tot("crit") <= 100, tot("crit") > 100 ? "over 100% is wasted" : "100% is the useful maximum"],
-  ];
-  const row = ([k, n, u]) => `<div class="cs-row${k === main ? " main" : ""}"><span>${k === "a" ? `<img class="ri" src="${SMALL.res.armour}" alt="">` : ""}${n}</span>
+  const anyPlan = Object.values(plan).some(Boolean);
+  const chk = (label, k, target, mode) => {
+    const n = now(k), f = fut(k), ok = v => mode === "max" ? v <= target : v >= target;
+    return `<div class="${ok(n) ? "pro" : ok(f) ? "plan-ok" : "con"}">${ok(n) ? "✓" : ok(f) ? "◐" : "✗"} ${label}: ${n}${mode === "max" ? "%" : ""}${f !== n ? ` now, ${f}${mode === "max" ? "%" : ""} planned` : ""} / ${target}${mode === "max" ? "%" : ""}</div>`;
+  };
+  const row = ([k, n, u]) => { const d = (plan[k] || 0); return `<div class="cs-row${k === main ? " main" : ""}"><span>${k === "a" ? `<img class="ri" src="${SMALL.res.armour}" alt="">` : ""}${n}</span>
     ${["a", "g"].includes(k) ? `<span class="v dim">–</span>` : `<input type="number" inputmode="numeric" data-base="${k}" value="${base[k] ?? ""}" placeholder="0" aria-label="${n} without gear">`}
-    <span class="v">${gear[k] ? (gear[k] > 0 ? "+" : "") + gear[k] : ""}</span><span class="v">${job[k] ? "+" + job[k] : ""}</span><b class="v">${tot(k)}${u || ""}</b></div>`;
+    <b class="v">${now(k)}${u || ""}</b><span class="v fut">${d ? `${fut(k)}${u || ""} <small>${d > 0 ? "+" : ""}${d}</small>` : `${fut(k)}${u || ""}`}</span></div>`; };
   return `<section class="panel notes">
     <h2 class="h2">Character sheet</h2>
-    <p>Enter this companion's own attributes from the game, without gear. Gear, armour layers and the profession bonus are added for you. Edit an item's real stats in Gear (tap the item).</p>
-    <div class="cs"><div class="cs-row head"><span>Stat</span><span>Own</span><span class="v">Gear</span><span class="v">Job</span><span class="v">Total</span></div>
+    <p>Enter this companion's own attributes from the game, without gear. <b>Now</b> adds gear and layers you have plus your profession bonus; <b>Planned</b> also adds everything marked as planned. Enter an item's real stats in Gear by tapping it.</p>
+    <div class="cs"><div class="cs-row head"><span>Stat</span><span>Own</span><span class="v">Now</span><span class="v">Planned</span></div>
       ${STAT_KEYS.map(row).join("")}
-      <div class="cs-row"><span>Health</span><span class="v dim">2 per Con.</span><span></span><span></span><b class="v">${tot("con") * 2}</b></div></div>
+      <div class="cs-row"><span>Health</span><span class="v dim">2 / Con.</span><b class="v">${now("con") * 2}</b><span class="v fut">${fut("con") * 2}</span></div></div>
+    ${!anyPlan ? `<p class="note">No planned gear yet. Plan items in Gear to see where this character is heading.</p>` : ""}
     ${pf ? `<div class="row"><span class="meta">${esc(pf.n)} rank:</span>${["Novice", "Apprentice", "Experienced", "Journeyman", "Master"].map((r, i) => `<button type="button" class="btn small${rank === i ? " primary" : ""}" data-rank-i="${i}">${r}</button>`).join("")}</div>` : `<p class="note">Choose a profession in Stats & Job to include its bonus.</p>`}
-    <div class="checks">${checks.map(([t, ok, why]) => `<div class="${ok ? "pro" : "con"}">${ok ? "✓" : "✗"} ${esc(t)} <span class="meta">· ${esc(why)}</span></div>`).join("")}</div>
+    <div class="checks">${chk("Willpower", "wil", 15)}${chk("Movement", "mv", moveTarget)}${chk("Critical Hit", "crit", 100, "max")}</div>
+    <p class="note">✓ reached now · ◐ reached with planned gear · ✗ not yet. 15 Willpower gives a death save; Movement target for a ${cls.name} is ${moveTarget}; Critical Hit above 100% is wasted.</p>
   </section>${renderNotes(b)}`;
 }
 
@@ -1097,7 +1149,7 @@ function renderEquip(cls, b) {
     const kinds = allowedKinds(cls, b, slot), it = ITEM[gear[slot]];
     const dis = slot === "offhand" && !kinds.length;
     return `<button type="button" class="slot${["weapon", "armour", "offhand"].includes(slot) ? " tall" : ""}" style="grid-area:${slot}" data-slot="${slot}" ${dis ? "disabled" : ""} aria-label="${label}${it ? ": " + esc(it.n) : ""}">
-      <span class="box${it ? " r-" + esc(it.r || "Common") : ""}">${it ? img(it.ic) : `<span class="tag">+</span>`}</span><small>${label}</small></button>`;
+      <span class="box${it ? " r-" + esc(it.r || "Common") : ""}${it && planOf(b)[slot] ? " planned" : ""}">${it ? img(it.ic) : `<span class="tag">+</span>`}</span><small>${label}${it && planOf(b)[slot] ? " · planned" : ""}</small></button>`;
   }).join("");
   const equipped = SLOTS.map(([slot]) => ITEM[gear[slot]]).filter(Boolean);
   const planSlots = [["weapon", "Weapon"], ["armour", "Armour"], ["helmet", "Helmet"], ...(allowedKinds(cls, b, "offhand").includes("shield") ? [["offhand", "Shield"]] : [])];
@@ -1117,8 +1169,8 @@ function renderEquip(cls, b) {
     </div>${rec ? `<p class="why">${esc(rec.why)}</p>` : ""}` : ""}
     <div class="doll">${slotHtml}</div>
     <p class="note">Armour: ${aw.from ? `${esc(aw.from)} can wear ${aw.list.join(", ")} armour.` : "choose a specialisation at Lvl " + cls.tiers.find(t => t.kind === "spec").lv + " to see which armour weights this unit can wear."} Tap a slot to choose gear.</p>
-    ${equipped.length ? `<div class="gearlist">${equipped.map(it => itemRow(it, { attr: `data-info="${esc(it.n)}"` })).join("")}</div><p class="note">Tap an equipped item to enter its real stats for the Sheet tab.</p>` : ""}
-    <h2 class="h2">Armour layers</h2>
+    ${equipped.length ? `<div class="gearlist">${SLOTS.filter(([sl]) => ITEM[gear[sl]]).map(([sl]) => { const it = ITEM[gear[sl]]; return `<div class="${planOf(b)[sl] ? "planned-row" : ""}">${itemRow(it, { attr: `data-info="${esc(it.n)}"`, why: [planOf(b)[sl] ? "Planned" : "Equipped"] })}</div>`; }).join("")}</div><p class="note">Faded items are planned. Tap an item to mark it as equipped once you have it, or to enter its real stats for the Sheet.</p>` : ""}
+    <h2 class="h2">Armour layers (plates)</h2>
     ${renderLayers(b)}
     <h2 class="h2">Gear by level</h2>
     <p class="note">Best crafted or faction item for each blacksmith tier that matches your picks. Levels per tier follow game.wiki (Ghost at 5, Rimesteel at 8, Akhedian at 11); you also need the matching Blacksmith rank.</p>
@@ -1143,6 +1195,7 @@ function renderNotes(b) {
 
 const MODES = [["char", "Character"], ["party", "Party"], ["camp", "Camp"], ["craft", "Crafting"]];
 function render() {
+  if (drawerTab) setTimeout(renderDrawer, 0);
   const b = cur(), cls = byId[b.cls], p = picksOf(b);
   document.getElementById("buildSel").innerHTML = S.builds.map(x => `<option value="${x.id}"${x.id === b.id ? " selected" : ""}>${esc(x.name || "Unnamed")} · ${byId[x.cls].name}</option>`).join("");
   const modes = `<div class="modes" role="tablist">${MODES.map(([id, l]) => `<button type="button" role="tab" data-mode="${id}" aria-selected="${S.mode === id}">${l}</button>`).join("")}</div>`;
@@ -1175,7 +1228,23 @@ function render() {
   <p class="foot">Skills, items, professions and status effects from the Wartales Fandom wiki; specialisations, unlocks, crafting tiers and stat mechanics from game.wiki (October 2026). Trust the game if numbers differ. Fan-made; Wartales is by Shiro Games.</p>`);
 }
 
-/* ---------- Sheets ---------- */
+/* ---------- Side drawer: party list and shopping list ---------- */
+const drawer = document.getElementById("drawer");
+let drawerTab = null;
+function renderDrawer() {
+  document.querySelectorAll("[data-drawer]").forEach(x => x.setAttribute("aria-pressed", x.dataset.drawer === drawerTab));
+  document.getElementById("dtabs").classList.toggle("open", !!drawerTab);
+  if (!drawerTab) { drawer.classList.remove("open"); setTimeout(() => { if (!drawerTab) drawer.hidden = true; }, 220); return; }
+  drawer.hidden = false; requestAnimationFrame(() => drawer.classList.add("open"));
+  document.getElementById("drTitle").textContent = drawerTab === "party" ? "Party" : "Shopping list";
+  const b0 = cur();
+  document.getElementById("drBody").innerHTML = decoHTML(drawerTab === "party"
+    ? S.builds.map(b => { const rank = b.id === S.party.captain ? "Captain" : b.id === S.party.lieutenant ? "Lieutenant" : ""; return `<button type="button" class="member${b.id === b0.id ? " on" : ""}" data-open="${b.id}">
+        <span class="portrait sm">${img(byId[b.cls].ic)}</span><span class="mi"><span class="n">${esc(b.name || "Unnamed")}</span>${rank ? ` <span class="chip rec">${rank}</span>` : ""}
+        <span class="meta">${esc(titleOf(b))} lvl ${b.level}${jobOf(b) ? " · " + esc(jobOf(b)) : ""}</span></span></button>`; }).join("")
+      + `<div class="row" style="justify-content:center;margin-top:8px"><button type="button" class="btn small primary" id="drAdd">+ Add companion</button></div>`
+    : renderPins(true) + `<h2 class="h2" style="margin-top:10px">Materials</h2>` + renderShopTable());
+}
 const tip = document.getElementById("tip"), picker = document.getElementById("picker");
 function showTip(key) {
   if (!GLOSS[key]) return;
@@ -1189,7 +1258,9 @@ function showItem(name) {
   const b = cur(), cls = byId[b.cls], kinds = allowedKinds(cls, b, it.s), ok = kinds.includes(it.k);
   document.getElementById("tipTitle").textContent = it.n;
   const eqSlot = SLOTS.map(x => x[0]).find(sl => gearOf(b)[sl] === it.n);
-  document.getElementById("tipBody").innerHTML = decoHTML(itemRow(it) + (eqSlot ? statEditor(b, eqSlot) : "") + `<div class="how">${howToGet(it)}</div>`) + `<div class="d-act">${RECIPES[it.n] ? `<button type="button" class="btn small" data-pin="${esc(it.n)}">${S.shop.pins[it.n] ? "Pinned ✓" : "Pin recipe"}</button>` : ""}${ok ? `<button type="button" class="btn primary small" data-equip="${esc(it.n)}">Equip</button>` : ""}</div>`;
+  document.getElementById("tipBody").innerHTML = decoHTML(itemRow(it) + (eqSlot ? statEditor(b, eqSlot) : "") + `<div class="how">${howToGet(it)}</div>`) + `<div class="d-act">${RECIPES[it.n] ? `<button type="button" class="btn small" data-pin="${esc(it.n)}">${pinFor(it.n, b.id) ? `Pinned for ${esc(b.name)} ✓` : `Pin recipe for ${esc(b.name)}`}</button>` : ""}
+    ${eqSlot ? `<button type="button" class="btn small primary" data-equip="${esc(it.n)}" data-st="${planOf(b)[eqSlot] ? "have" : "plan"}">${planOf(b)[eqSlot] ? "I have it now" : "Mark as planned"}</button>`
+      : ok ? `<button type="button" class="btn small" data-equip="${esc(it.n)}" data-st="plan">Plan it</button><button type="button" class="btn primary small" data-equip="${esc(it.n)}" data-st="have">Equip (I have it)</button>` : ""}</div>`;
   tip.hidden = false;
 }
 function openPicker(slot) {
@@ -1224,10 +1295,17 @@ const keep = fn => { const y = window.scrollY; fn(); save(); render(); window.sc
 document.addEventListener("click", e => {
   const term = e.target.closest(".term");
   if (term) { showTip(term.dataset.term); return; }
+  const dt = e.target.closest("[data-drawer]");
+  if (dt) { drawerTab = drawerTab === dt.dataset.drawer ? null : dt.dataset.drawer; renderDrawer(); return; }
+  if (e.target.closest("#drClose")) { drawerTab = null; renderDrawer(); return; }
+  const op = e.target.closest("#drawer [data-open]");
+  if (op) { S.active = op.dataset.open; S.mode = "char"; drawerTab = null; save(); render(); renderDrawer(); window.scrollTo(0, 0); return; }
+  if (e.target.closest("#drAdd")) { const nb = newBuild(); S.builds.push(nb); S.active = nb.id; S.mode = "char"; S.tab = "spec"; drawerTab = null; save(); render(); renderDrawer(); window.scrollTo(0, 0); document.getElementById("nameIn").select(); return; }
+  if (drawerTab && !e.target.closest("#drawer") && !e.target.closest(".sheet")) { drawerTab = null; renderDrawer(); }
   const close = e.target.closest("[data-close]");
   if (close) { document.getElementById(close.dataset.close).hidden = true; return; }
   const lay = e.target.closest("#picker [data-layer]");
-  if (lay) { const b = cur(); keep(() => { layersOf(b)[+lay.dataset.layer] = lay.dataset.n; }); picker.hidden = true; return; }
+  if (lay) { const b = cur(); keep(() => { layersOf(b)[+lay.dataset.layer] = lay.dataset.n; planOf(b)["layer" + lay.dataset.layer] = true; }); picker.hidden = true; return; }
   const unl = e.target.closest("[data-unlayer]");
   if (unl) { const b = cur(); keep(() => { layersOf(b)[+unl.dataset.unlayer] = undefined; }); picker.hidden = true; return; }
   const ires = e.target.closest("[data-ireset]");
@@ -1237,9 +1315,11 @@ document.addEventListener("click", e => {
   const mat = e.target.closest("[data-mat]");
   if (mat && !e.target.closest("#app input")) { showMat(mat.dataset.mat); return; }
   const pin = e.target.closest("[data-pin]");
-  if (pin) { const n = pin.dataset.pin; if (S.shop.pins[n]) delete S.shop.pins[n]; else S.shop.pins[n] = 1; save(); showItem(n); if (S.mode !== "char") render(); return; }
+  if (pin) { const n = pin.dataset.pin, bid = cur().id, ex = pinFor(n, bid); if (ex) S.shop.list.splice(S.shop.list.indexOf(ex), 1); else S.shop.list.push({ n, b: bid, q: 1 }); save(); showItem(n); render(); return; }
+  const pq = e.target.closest("[data-pinq]");
+  if (pq) { const x = S.shop.list[+pq.dataset.pinq]; if (x) { x.q = Math.min(99, x.q + +pq.dataset.d); if (x.q <= 0) S.shop.list.splice(+pq.dataset.pinq, 1); } save(); render(); return; }
   const eq = e.target.closest("[data-equip]");
-  if (eq) { const it = ITEM[eq.dataset.equip], b = cur(); keep(() => { gearOf(b)[it.s] = it.n; }); picker.hidden = true; tip.hidden = true; return; }
+  if (eq) { const it = ITEM[eq.dataset.equip], b = cur(); keep(() => { gearOf(b)[it.s] = it.n; planOf(b)[it.s] = eq.dataset.st === "plan"; }); picker.hidden = true; tip.hidden = true; return; }
   if (e.target.closest("[data-unequip]")) { keep(() => { delete gearOf(cur())[pkSlot]; }); picker.hidden = true; return; }
   const f = e.target.closest("[data-filter]");
   if (f) { pkFilter = f.dataset.filter; renderPicker(); document.getElementById("pkBody").scrollTop = 0; return; }
@@ -1253,8 +1333,7 @@ app.addEventListener("click", e => {
   const t = e.target.closest("button"); if (!t) return;
   const b = cur(), cls = byId[b.cls], p = picksOf(b);
   if (t.dataset.mode) return keep(() => { S.mode = t.dataset.mode; });
-  if (t.dataset.pinq) return keep(() => { const n = t.dataset.pinq, q = (S.shop.pins[n] || 0) + +t.dataset.d; if (q <= 0) delete S.shop.pins[n]; else S.shop.pins[n] = Math.min(99, q); });
-  if (t.id === "clearShop") return keep(() => { S.shop = { pins: {}, have: {} }; });
+  if (t.id === "clearShop") return keep(() => { S.shop = { list: [], have: {} }; });
   if (t.dataset.mat) return;
   if (t.dataset.open) return keep(() => { S.active = t.dataset.open; S.mode = "char"; });
   if (t.dataset.rank) return keep(() => { const other = t.dataset.rank === "captain" ? "lieutenant" : "captain"; if (S.party[other] === t.dataset.id) delete S.party[other]; S.party[t.dataset.rank] = t.dataset.id; });
@@ -1274,6 +1353,7 @@ app.addEventListener("click", e => {
   if (t.dataset.style) return keep(() => { const g = gearOf(b); g.style = t.dataset.style; if (g.style === "two") delete g.offhand; const w = ITEM[g.weapon]; if (w && !allowedKinds(cls, b, "weapon").includes(w.k)) delete g.weapon; });
   if (t.dataset.slot) return openPicker(t.dataset.slot);
   if (t.dataset.lslot) return openLayerPicker(+t.dataset.lslot);
+  if (t.dataset.ltoggle) return keep(() => { const k = "layer" + t.dataset.ltoggle, pl = planOf(b); pl[k] = !pl[k]; });
   if (t.dataset.rankI) return keep(() => { (b.rank ||= {})[b.cls] = +t.dataset.rankI; });
   if (t.dataset.job) return keep(() => { b.job[cls.id] = b.job[cls.id] === t.dataset.job ? undefined : t.dataset.job; });
   if (t.dataset.info) return showItem(t.dataset.info);
@@ -1295,6 +1375,12 @@ app.addEventListener("change", e => {
 });
 document.addEventListener("input", e => {
   const d = e.target.dataset || {};
+  if (d.have) {
+    S.shop.have[d.have] = Math.max(0, +e.target.value || 0); save();
+    const m = d.have, get = Math.max(0, (shoppingList()[m] || 0) - S.shop.have[m]);
+    document.querySelectorAll(`[data-have="${CSS.escape(m)}"]`).forEach(inp => { const row = inp.closest(".sh-row"); if (inp !== e.target) inp.value = S.shop.have[m] || ""; row.querySelector(".get").textContent = get || "✓"; row.classList.toggle("done", !get); });
+    return;
+  }
   if (d.istat) {
     const b = cur(), it = ITEM[gearOf(b)[d.istat]]; if (!it) return;
     const st = istatsOf(b), cur0 = itemStats(b, d.istat);
@@ -1308,11 +1394,7 @@ app.addEventListener("input", e => {
     clearTimeout(window.__rt); window.__rt = setTimeout(() => { const f = document.activeElement?.dataset?.base, y = window.scrollY; render(); window.scrollTo(0, y); if (f) { const el = document.querySelector(`[data-base="${f}"]`); el?.focus(); const v = el?.value; if (el) { el.value = ""; el.value = v; } } }, 500);
     return;
   }
-  if (e.target.dataset?.have) {
-    S.shop.have[e.target.dataset.have] = Math.max(0, +e.target.value || 0); save();
-    const row = e.target.closest(".sh-row"), m = e.target.dataset.have, get = Math.max(0, (shoppingList()[m] || 0) - S.shop.have[m]);
-    row.querySelector(".get").textContent = get || "✓"; row.classList.toggle("done", !get); return;
-  }
+
   const b = cur();
   if (e.target.id === "nameIn") { b.name = e.target.value; save(); const o = document.querySelector(`#buildSel option[value="${b.id}"]`); if (o) o.textContent = `${b.name || "Unnamed"} · ${byId[b.cls].name}`; }
   if (e.target.id === "notesIn") { b.notes = e.target.value; save(); }

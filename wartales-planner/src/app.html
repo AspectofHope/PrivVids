@@ -281,6 +281,9 @@ select.as { margin-top: 5px; width: 100%; padding: 5px 8px; border: 1px solid va
 img.ri { width: 1.05em; height: 1.05em; object-fit: contain; vertical-align: -0.16em; margin-right: 2px; }
 img.ti { width: 26px; height: 26px; object-fit: contain; vertical-align: middle; margin-right: 8px; }
 
+img.cami { width: 34px; height: 34px; object-fit: contain; }
+img.mi2 { width: 20px; height: 20px; object-fit: contain; vertical-align: -5px; margin-right: 4px; }
+
 /* Notes tab */
 .notes { padding: 14px; display: flex; flex-direction: column; gap: 10px; }
 .notes p { margin: 0; color: var(--muted); font-size: .95rem; }
@@ -778,7 +781,7 @@ function renderCamp() {
     const pf = s.job && PROFS.find(p => p.n === s.job);
     return `<div class="st-row${tier ? "" : " off"}">
       <div class="st-h"><button type="button" class="own" data-own="${s.id}" aria-pressed="${!!tier}" aria-label="${tier ? "Owned" : "Not owned"}: ${s.n}">${tier ? "✓" : ""}</button>
-        <b>${s.n}</b>${pf ? `<img src="${pf.icon}" alt="" class="sti">` : ""}
+        ${(SMALL.camp[s.id] || [])[Math.max(0, (tier || 1) - 1)] ? `<img src="${SMALL.camp[s.id][Math.max(0, (tier || 1) - 1)]}" alt="" class="cami">` : ""}<b>${s.n}</b>${pf ? `<img src="${pf.icon}" alt="" class="sti">` : ""}
         ${tier && s.t.length > 1 ? `<span class="tiers">${[1, 2, 3].map(n => `<button type="button" data-tier="${s.id}" data-n="${n}" aria-pressed="${tier === n}">T${n}</button>`).join("")}</span>` : ""}</div>
       ${tier ? `<div class="meta">${esc(s.t[Math.min(tier, s.t.length) - 1])} · Staff: ${esc(s.need)}</div>
         ${S.camp.manual ? `<select class="as" data-assign="${s.id}" aria-label="Assign ${s.n}"><option value="">— nobody —</option>${party.map(b => `<option value="${b.id}"${ids.includes(b.id) ? " selected" : ""}${eligible(s, b) ? "" : " disabled"}>${esc(b.name)}${eligible(s, b) ? "" : " (can't)"}</option>`).join("")}</select>`
@@ -831,7 +834,7 @@ function howToGet(it) {
     const cat = it.s === "helmet" ? "Helmets" : SETCAT[it.k] || "";
     const beast = /^Beast/.test(it.n);
     out.push(`<div class="htg"><b>Craft it</b> at the Anvil with ${an(rank)} <b>${esc(rank)} Blacksmith</b>.</div>`);
-    out.push(`<div class="ings">${r.ing.map(([m, n]) => `<button type="button" class="ing" data-mat="${esc(m)}"><b>${n}×</b> ${esc(m)}</button>`).join("")}</div>`);
+    out.push(`<div class="ings">${r.ing.map(([m, n]) => `<button type="button" class="ing" data-mat="${esc(m)}">${SMALL.mat[m] ? `<img class="mi2" src="${SMALL.mat[m]}" alt="">` : ""}<b>${n}×</b> ${esc(m)}</button>`).join("")}</div>`);
     out.push(`<div class="meta">Recipe: ${beast ? "Beast Blacksmith Set (The Beast Hunt)" : `${esc(rank)} Blacksmith Set${cat ? " · " + cat : ""}`}. ${beast ? "Unlocked through The Beast Hunt scenario." : it.t > 1
       ? `Unlock it in the Compendium: reach ${esc(rank)} Blacksmith, craft any ${TIERS[it.t - 2].name}-tier item, then spend 1 Knowledge Point.`
       : "Unlock it in the Compendium: level up the Blacksmith and spend 1 Knowledge Point."} Knowledge comes from discovering places and the Lectern (Scholar).</div>`);
@@ -843,7 +846,7 @@ function howToGet(it) {
 function showMat(m) {
   const d = MATS[m] || { get: "See the wiki for sources.", buy: "" };
   const who = d.job ? S.builds.filter(b => jobOf(b) === d.job) : [];
-  document.getElementById("tipTitle").textContent = m;
+  document.getElementById("tipTitle").innerHTML = (SMALL.mat[m] ? `<img class="ti" src="${SMALL.mat[m]}" alt="">` : "") + esc(m);
   document.getElementById("tipBody").innerHTML = decoHTML(`<p><b>Gather or make:</b> ${esc(d.get)}</p>${d.buy ? `<p><b>Buy:</b> ${esc(d.buy)}</p>` : ""}
     ${d.job ? `<p><i>${who.length ? `Your ${esc(d.job)}: ${who.map(b => esc(b.name)).join(", ")}.` : `Nobody in your party is ${an(d.job)} ${esc(d.job)}.`}</i></p>` : ""}`);
   tip.hidden = false;
@@ -910,7 +913,7 @@ function renderCrafting() {
     <p class="note">Enter how much you already have; the list shows what is still missing. Tap a material to see where to gather or buy it.</p>
     <div class="shop"><div class="sh-row head"><span>Material</span><span>Need</span><span>Have</span><span>Get</span></div>
     ${Object.entries(need).map(([m, n]) => { const h = +have[m] || 0, get = Math.max(0, n - h), d = MATS[m], who = d?.job && S.builds.some(b => jobOf(b) === d.job);
-      return `<div class="sh-row${get ? "" : " done"}"><button type="button" class="ing" data-mat="${esc(m)}">${esc(m)}${d?.job ? `<small>${who ? "your " : "needs "}${esc(d.job)}</small>` : ""}</button><span>${n}</span>
+      return `<div class="sh-row${get ? "" : " done"}"><button type="button" class="ing" data-mat="${esc(m)}">${SMALL.mat[m] ? `<img class="mi2" src="${SMALL.mat[m]}" alt="">` : ""}${esc(m)}${d?.job ? `<small>${who ? "your " : "needs "}${esc(d.job)}</small>` : ""}</button><span>${n}</span>
         <input type="number" min="0" inputmode="numeric" data-have="${esc(m)}" value="${h || ""}" placeholder="0" aria-label="${esc(m)} you have"><span class="get">${get ? get : "✓"}</span></div>`; }).join("")}</div>
     <div class="row" style="justify-content:flex-end"><button type="button" class="btn small danger" id="clearShop">Clear list</button></div>` : ""}
   </section>`;

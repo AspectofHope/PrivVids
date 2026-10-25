@@ -154,6 +154,7 @@ main { max-width: 640px; margin: 0 auto; padding-block: 14px 48px;
 .n.r-Common { color: var(--r-common); } .n.r-Unusual { color: var(--r-unusual); } .n.r-Rare { color: var(--r-rare); } .n.r-Legendary { color: var(--r-legendary); }
 .meta { font-size: .86rem; color: var(--muted); }
 .stats { font-size: .9rem; color: #cfc8b8; }
+.stats .ex { color: var(--muted); font-style: italic; }
 .fx { font-size: .92rem; color: #cfc8b8; margin-top: 2px; }
 .fx i { color: var(--gold); font-style: normal; font-weight: 600; }
 .chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
@@ -922,7 +923,13 @@ function renderSpec(cls, b) {
 }
 
 function itemRow(it, opts = {}) {
-  const st = [it.d ? `Damage ${esc(it.d)}` : "", it.a ? `Armour ${esc(it.a)}` : "", it.g ? `Guard ${esc(it.g)}` : "", it.st ? esc(it.st) : ""].filter(Boolean).join(" · ");
+  // Armour/Guard on the wiki are example values for one item level (usually 16); stats scale with item level
+  const lvlOf = v => (String(v || "").match(/\((?:level|lvl) (\d+)\)/) || [])[1];
+  const val = v => String(v || "").replace(/\s*\((?:level|lvl) \d+\)/, "");
+  const defs = [it.a && !/\?/.test(it.a) ? `Armour ${esc(val(it.a))}` : "", it.g && !/\?/.test(it.g) ? `Guard ${esc(val(it.g))}` : ""].filter(Boolean);
+  const exLv = lvlOf(it.a) || lvlOf(it.g), myLv = cur().level;
+  const defTxt = defs.length ? defs.join(" · ") + (exLv ? ` <span class="ex">at item level ${exLv} (wiki example${myLv < exLv ? `; lower at your level ${myLv}` : ""})</span>` : "") : "";
+  const st = [it.d ? `Damage ${esc(it.d)}` : "", defTxt, it.st ? esc(it.st) : ""].filter(Boolean).join(" · ");
   const meta = [it.r, KIND_NAME[it.k], it.t != null && it.t > 0 ? `Tier ${it.t} (${TIERS[it.t - 1].name})` : ""].filter(Boolean).join(" · ");
   return `<button type="button" class="gi${opts.on ? " on" : ""}" ${opts.attr || ""}>${img(it.ic, "ii")}<span>
     <span class="n r-${esc(it.r || "Common")}">${esc(it.n)}</span>

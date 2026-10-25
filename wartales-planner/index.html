@@ -774,6 +774,11 @@ const MATS = {
   "Bone of the Beast": { get: "From the creatures of The Beast Hunt DLC.", buy: "—" },
   "Raw Materials": { job: "Tinkerer", get: "The Workshop makes 2 per rest when a Tinkerer staffs it.", buy: "—" },
 };
+const BASE_DEF = {
+  "armour-light": { a: 8, m: 2, label: "light armour" }, "armour-medium": { a: 9, g: 8, label: "medium armour" }, "armour-heavy": { a: 10, g: 12, m: -2, label: "heavy armour" },
+  "helmet-light": { a: 2, label: "light helmet" }, "helmet-medium": { a: 3, g: 2, label: "medium helmet" }, "helmet-heavy": { a: 4, g: 2, label: "heavy helmet" },
+  shield: { a: 4, g: 9, label: "shield" },
+};
 const an = w => /^[AEIOU]/i.test(w) ? "an" : "a";
 const SETCAT = { axe1: "Weapons I", sword1: "Weapons I", mace1: "Weapons I", axe2: "Weapons II", sword2: "Weapons II", mace2: "Weapons II", bow: "Weapons III", crossbow: "Weapons III", polearm: "Weapons III",
   dagger: "Weapons IV", brawl: "Weapons IV", throw: "Left Hand", shield: "Shields", heavy: "Armor", medium: "Armor", light: "Armor" };
@@ -923,13 +928,14 @@ function renderSpec(cls, b) {
 }
 
 function itemRow(it, opts = {}) {
-  // Armour/Guard on the wiki are example values for one item level (usually 16); stats scale with item level
-  const lvlOf = v => (String(v || "").match(/\((?:level|lvl) (\d+)\)/) || [])[1];
-  const val = v => String(v || "").replace(/\s*\((?:level|lvl) \d+\)/, "");
-  const defs = [it.a && !/\?/.test(it.a) ? `Armour ${esc(val(it.a))}` : "", it.g && !/\?/.test(it.g) ? `Guard ${esc(val(it.g))}` : ""].filter(Boolean);
-  const exLv = lvlOf(it.a) || lvlOf(it.g), myLv = cur().level;
-  const defTxt = defs.length ? defs.join(" · ") + (exLv ? ` <span class="ex">at item level ${exLv} (wiki example${myLv < exLv ? `; lower at your level ${myLv}` : ""})</span>` : "") : "";
-  const st = [it.d ? `Damage ${esc(it.d)}` : "", defTxt, it.st ? esc(it.st) : ""].filter(Boolean).join(" · ");
+  // Base Armour/Guard per weight class from game.wiki's crafting tables; the game scales them with item level
+  const base = BASE_DEF[it.s === "offhand" ? (it.k === "shield" ? "shield" : "") : it.s + "-" + it.k];
+  const exA = String(it.a || "").match(/^\+?(\d+) \((?:level|lvl) (\d+)\)/);
+  const defTxt = base ? [`Base Armour ${base.a}`, base.g ? `Guard ${base.g}` : "", base.m ? `Movement ${base.m > 0 ? "+" : ""}${base.m}` : ""].filter(Boolean).join(" · ")
+    + ` <span class="ex">(${base.label} base; grows with item level${exA ? `; wiki example at item level ${exA[2]}: Armour ${exA[1]}` : ""})</span>` : "";
+  // Drop stat entries the base line already covers (armour Movement) or that the wiki marks unknown (+??)
+  const bonus = String(it.st || "").split(/,\s*/).filter(x => x && !/\?\?/.test(x) && !(base?.m && /Movement/.test(x))).join(", ");
+  const st = [it.d ? `Damage ${esc(it.d)}` : "", defTxt, bonus ? esc(bonus) : ""].filter(Boolean).join(" · ");
   const meta = [it.r, KIND_NAME[it.k], it.t != null && it.t > 0 ? `Tier ${it.t} (${TIERS[it.t - 1].name})` : ""].filter(Boolean).join(" · ");
   return `<button type="button" class="gi${opts.on ? " on" : ""}" ${opts.attr || ""}>${img(it.ic, "ii")}<span>
     <span class="n r-${esc(it.r || "Common")}">${esc(it.n)}</span>

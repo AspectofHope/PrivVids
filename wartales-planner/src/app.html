@@ -258,6 +258,29 @@ select.as { margin-top: 5px; width: 100%; padding: 5px 8px; border: 1px solid va
 .sh-row .get { color: var(--red); font-weight: 600; }
 .sh-row.done .get { color: var(--green); }
 
+/* Item stats, layers, sheet */
+.ised { margin-top: 8px; border-top: 1px solid var(--line); padding-top: 8px; }
+.igrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-top: 6px; }
+.igrid label { display: flex; flex-direction: column; font-size: .78rem; color: var(--muted); gap: 2px; }
+.igrid input, .cs input { width: 100%; padding: 4px 6px; border: 1px solid var(--line); background: #11100f; text-align: right; font-variant-numeric: tabular-nums; }
+.layers { display: flex; flex-direction: column; gap: 6px; }
+.lslot { display: grid; grid-template-columns: 52px 1fr; gap: 10px; align-items: center; border: 1px solid var(--line); background: var(--tab); padding: 6px; text-align: left; }
+.lslot .box.sq { width: 48px; height: 48px; display: grid; place-items: center; background: radial-gradient(circle, #2b2825, #161513); border: 1px solid #000; }
+.lslot .box.sq img { width: 40px; height: 40px; object-fit: contain; }
+.lslot b { display: block; font-weight: 600; }
+.gi img.ii.lay { height: 48px; }
+.cs { display: flex; flex-direction: column; }
+.cs-row { display: grid; grid-template-columns: minmax(0, 1fr) 66px 48px 40px 56px; gap: 6px; align-items: center; padding: 5px 2px; border-top: 1px solid rgba(255,255,255,.06); font-variant-numeric: tabular-nums; }
+.cs-row.head { border-top: 0; color: var(--muted); font-size: .82rem; }
+.cs-row.main > span:first-child { color: var(--gold-hi); }
+.cs-row .v { text-align: right; }
+.cs-row .dim { color: var(--dim); font-size: .8rem; }
+.cs-row b.v { font-weight: 600; color: var(--gold-hi); }
+.checks { display: flex; flex-direction: column; gap: 2px; }
+
+img.ri { width: 1.05em; height: 1.05em; object-fit: contain; vertical-align: -0.16em; margin-right: 2px; }
+img.ti { width: 26px; height: 26px; object-fit: contain; vertical-align: middle; margin-right: 8px; }
+
 /* Notes tab */
 .notes { padding: 14px; display: flex; flex-direction: column; gap: 10px; }
 .notes p { margin: 0; color: var(--muted); font-size: .95rem; }
@@ -323,6 +346,8 @@ const CENSERS = __CENSERS__;
 const ITEMS = __ITEMS__;
 // Professions: master-rank bonuses (m) and the bonus at each rank, from the Fandom wiki
 const PROFS = __PROFS__;
+// Small game icons from the Fandom wiki: resources (Happiness, Food…) and status effects
+const SMALL = __SMALL_ICONS__;
 // Level-up weights per class (Strength, Dexterity, Constitution, Critical Hit, Movement), from game.wiki
 const GROWTH = { swordsman: [23, 20, 45, 15, 0], warrior: [25, 12, 45, 15, 0], brute: [28, 12, 45, 15, 0], spearman: [23, 17, 45, 15, 0], archer: [12, 25, 45, 18, 0],
   ranger: [15, 25, 35, 15, 10], pugilist: [12, 25, 45, 18, 0], crossbowman: [12, 25, 45, 18, 0], thaumaturge: [12, 25, 45, 18, 0] };
@@ -366,6 +391,22 @@ const KEYS = [
   ["Movement", /movement/i], ["Valor", /\bVP\b|valou?r/i], ["Healing", /\bheal/i], ["Attacks from behind", /from behind|ambush/i],
   ["Inhalation", /inhal|purge/i], ["Reloading", /reload|loaded/i], ["Disarm", /disarm/i], ["Slowdown", /slowdown/i], ["Animals", /animal/i], ["Stances", /stance/i],
 ];
+
+/* ---------- Inline game icons ---------- */
+// Put the game's icon before Valor, Happiness, Food, Knowledge, Influence and Krowns in rendered text (never inside tags, textareas or options)
+const RES_RE = /\b(Valou?r Points?|Valou?r|VP|Happiness|food|Food|Knowledge(?: Points?)?|Influence|Krowns)\b/g;
+function resIcon(word) {
+  const w = word.toLowerCase();
+  const src = /^(valou?r|vp)/.test(w) ? ICONS[VALOR_IC] : w === "happiness" ? SMALL.res.happy : w === "food" ? SMALL.res.food : w.startsWith("knowledge") ? SMALL.res.knowledge : w === "influence" ? SMALL.res.influence : w === "krowns" ? SMALL.res.krowns : "";
+  return src ? `<img class="ri" src="${src}" alt="">` : "";
+}
+function decoHTML(html) {
+  let skip = 0;
+  return html.split(/(<[^>]+>)/).map(seg => {
+    if (seg.startsWith("<")) { if (/^<(textarea|option|select|title)\b/i.test(seg)) skip++; else if (/^<\/(textarea|option|select|title)>/i.test(seg)) skip = Math.max(0, skip - 1); return seg; }
+    return skip ? seg : seg.replace(RES_RE, m => resIcon(m) + m);
+  }).join("");
+}
 
 /* ---------- Glossary helpers ---------- */
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -803,8 +844,8 @@ function showMat(m) {
   const d = MATS[m] || { get: "See the wiki for sources.", buy: "" };
   const who = d.job ? S.builds.filter(b => jobOf(b) === d.job) : [];
   document.getElementById("tipTitle").textContent = m;
-  document.getElementById("tipBody").innerHTML = `<p><b>Gather or make:</b> ${esc(d.get)}</p>${d.buy ? `<p><b>Buy:</b> ${esc(d.buy)}</p>` : ""}
-    ${d.job ? `<p><i>${who.length ? `Your ${esc(d.job)}: ${who.map(b => esc(b.name)).join(", ")}.` : `Nobody in your party is ${an(d.job)} ${esc(d.job)}.`}</i></p>` : ""}`;
+  document.getElementById("tipBody").innerHTML = decoHTML(`<p><b>Gather or make:</b> ${esc(d.get)}</p>${d.buy ? `<p><b>Buy:</b> ${esc(d.buy)}</p>` : ""}
+    ${d.job ? `<p><i>${who.length ? `Your ${esc(d.job)}: ${who.map(b => esc(b.name)).join(", ")}.` : `Nobody in your party is ${an(d.job)} ${esc(d.job)}.`}</i></p>` : ""}`);
   tip.hidden = false;
 }
 function shoppingList() {
@@ -873,6 +914,105 @@ function renderCrafting() {
         <input type="number" min="0" inputmode="numeric" data-have="${esc(m)}" value="${h || ""}" placeholder="0" aria-label="${esc(m)} you have"><span class="get">${get ? get : "✓"}</span></div>`; }).join("")}</div>
     <div class="row" style="justify-content:flex-end"><button type="button" class="btn small danger" id="clearShop">Clear list</button></div>` : ""}
   </section>`;
+}
+
+/* ---------- Item stats, armour layers and the character sheet ---------- */
+// Armour layers from the Fandom wiki's Armour Layers page
+const LAYERS = __LAYERS__;
+const LAYER = Object.fromEntries(LAYERS.map(l => [l.n, l]));
+const STAT_KEYS = [["str", "Strength"], ["dex", "Dexterity"], ["con", "Constitution"], ["wil", "Willpower"], ["crit", "Critical Hit", "%"], ["cd", "Critical Damage", "%"], ["mv", "Movement"], ["a", "Armour"], ["g", "Guard"]];
+const STAT_BY_NAME = Object.fromEntries(STAT_KEYS.map(([k, n]) => [n.toLowerCase(), k]));
+// Read flat bonuses like "+4 Strength", "Critical Hit +5%", "+10% Critical Damage"; percent bonuses to Strength/Dexterity are not flat, so they are skipped
+function parseStats(text) {
+  const out = {};
+  const re = /([+-]\d+)(%?)\s+(Strength|Dexterity|Constitution|Willpower|Critical Hit|Critical Damage|Movement|Armour|Guard)|(Strength|Dexterity|Constitution|Willpower|Critical Hit|Critical Damage|Movement|Armour|Guard)\s+([+-]\d+)(%?)/gi;
+  for (const m of String(text || "").replace(/\s*\((?:lvl|level) \d+\)/g, "").matchAll(re)) {
+    const v = +(m[1] || m[5]), pct = m[2] || m[6], name = (m[3] || m[4]).toLowerCase(), k = STAT_BY_NAME[name];
+    if (pct && (k === "str" || k === "dex")) continue;
+    out[k] = (out[k] || 0) + v;
+  }
+  return out;
+}
+function defaultItemStats(it) {
+  const base = BASE_DEF[it.s === "offhand" ? (it.k === "shield" ? "shield" : "") : it.s + "-" + it.k] || {};
+  const v = parseStats(it.st);
+  if (base.a) v.a = (v.a || 0) + base.a;
+  if (base.g) v.g = (v.g || 0) + base.g;
+  if (base.m && !v.mv) v.mv = base.m;
+  return v;
+}
+const istatsOf = b => (b.istats ||= {})[b.cls] ||= {};
+const layersOf = b => (b.layers ||= {})[b.cls] ||= [];
+function itemStats(b, slot) {
+  const it = ITEM[gearOf(b)[slot]]; if (!it) return null;
+  const saved = istatsOf(b)[slot];
+  return saved && saved.item === it.n ? { vals: saved.vals, mine: true } : { vals: defaultItemStats(it), mine: false };
+}
+function statEditor(b, slot) {
+  const s = itemStats(b, slot); if (!s) return "";
+  return `<div class="ised"><div class="htg"><b>Your item's stats</b> <span class="meta">${s.mine ? "entered by you" : "pre-filled from the wiki; change them to match your item"}</span></div>
+    <div class="igrid">${STAT_KEYS.map(([k, n, u]) => `<label><span>${n}${u ? " %" : ""}</span><input type="number" inputmode="numeric" data-istat="${slot}" data-k="${k}" value="${s.vals[k] ?? ""}" placeholder="0"></label>`).join("")}</div>
+    ${s.mine ? `<div class="d-act"><button type="button" class="btn small" data-ireset="${slot}">Reset to wiki values</button></div>` : ""}</div>`;
+}
+function layerScore(l, cls, b) {
+  const adv = statAdvice(cls, b), lvl = Object.fromEntries(adv.map(a => [a.stat, a.level]));
+  const W = { High: 1, Medium: 0.6, Low: 0.15 };
+  const tank = (profile(cls, b)["Guard"] || 0) + (profile(cls, b)["Protection"] || 0) > 0 || armourWeights(cls, b).best === "heavy";
+  const v = parseStats(l.d), main = cls.stat === "Strength" ? "str" : "dex", other = main === "str" ? "dex" : "str";
+  let s = (v[main] || 0) * 1 + (v[other] || 0) * 0.1 + (v.crit || 0) * 0.7 * W[lvl["Critical Hit"]] * 1.4 + (v.cd || 0) * 0.35 * (main === "str" ? 1 : 0.6) * W[lvl["Critical Hit"]] * 1.4
+    + (v.mv || 0) * 2 * W[lvl["Movement"]] + (v.a || 0) * (tank ? 0.2 : 0.08) + (v.g || 0) * (tank ? 0.6 : 0.25);
+  if (/%/.test(l.d) && /(Strength|Dexterity) \+\d+%/.test(l.d)) s += /Strength/.test(l.d) === (main === "str") ? 4 : 0.5;
+  return s;
+}
+function openLayerPicker(i) {
+  const b = cur(), cls = byId[b.cls], have = layersOf(b);
+  pkSlot = "layer" + i;
+  document.getElementById("pkTitle").textContent = `Choose armour layer ${i + 1}`;
+  document.getElementById("pkFilters").innerHTML = have[i] ? `<button type="button" data-unlayer="${i}">Remove layer</button>` : "";
+  const list = LAYERS.map(l => ({ l, s: layerScore(l, cls, b) })).sort((x, y) => y.s - x.s);
+  document.getElementById("pkBody").innerHTML = `<p class="note" style="margin:6px 0">Ranked for this build. Rarer layers are stronger; brooches trade one stat for another.</p>` + list.map((x, n) => `<button type="button" class="gi${have[i] === x.l.n ? " on" : ""}" data-layer="${i}" data-n="${esc(x.l.n)}">
+    ${x.l.icon ? `<img src="${x.l.icon}" alt="" class="ii lay">` : "<span></span>"}<span><span class="n r-${esc(x.l.r || "Common")}">${esc(x.l.n)}</span>
+    <div class="stats">${esc(x.l.d || "")}</div><div class="meta">${esc(x.l.r)}${x.l.how ? " · " + esc(x.l.how) : ""}</div>
+    ${n < 3 ? `<div class="chips"><span class="chip rec">${n === 0 ? "Best for this build" : "Good fit"}</span></div>` : ""}</span></button>`).join("");
+  picker.hidden = false; tip.hidden = true;
+}
+function renderLayers(b) {
+  const have = layersOf(b);
+  if (!ITEM[gearOf(b).armour]) return `<p class="note">Equip body armour to add armour layers.</p>`;
+  return `<div class="layers">${[0, 1, 2].map(i => { const l = LAYER[have[i]]; return `<button type="button" class="lslot" data-lslot="${i}">
+    <span class="box sq">${l?.icon ? `<img src="${l.icon}" alt="">` : `<span class="tag">+</span>`}</span><span><b>${l ? esc(l.n) : `Layer ${i + 1}`}</b><span class="meta">${l ? esc(l.d) : "Empty"}</span></span></button>`; }).join("")}</div>
+    <p class="note">Armour holds up to 3 layers; how many slots yours has depends on its quality (superior forging and blacksmith alterations add slots).</p>`;
+}
+function sheetTotals(b) {
+  const cls = byId[b.cls], base = (b.base ||= {})[b.cls] ||= {};
+  const gear = {}, add = (t, v) => { for (const [k, x] of Object.entries(v)) t[k] = (t[k] || 0) + (+x || 0); };
+  for (const [slot] of SLOTS) { const s = itemStats(b, slot); if (s) add(gear, s.vals); }
+  for (const n of layersOf(b)) if (LAYER[n]) add(gear, parseStats(LAYER[n].d));
+  const job = {}, pf = PROFS.find(p => p.n === jobOf(b)), rank = (b.rank ||= {})[b.cls] ?? 4;
+  if (pf) add(job, parseStats(pf.ranks[rank][0].replace(/\bSTR\b/, "Strength").replace(/\bDEX\b/, "Dexterity").replace(/\bCON\b/, "Constitution").replace(/\bWIL\b/, "Willpower").replace(/Crit Hit/, "Critical Hit")));
+  return { base, gear, job, rank, pf };
+}
+function renderSheet(cls, b) {
+  const { base, gear, job, rank, pf } = sheetTotals(b);
+  const tot = k => (+base[k] || 0) + (gear[k] || 0) + (job[k] || 0);
+  const moveTarget = MOVE_TARGET[cls.id] || 18, main = cls.stat === "Strength" ? "str" : "dex";
+  const checks = [
+    [`Willpower ${tot("wil")} / 15`, tot("wil") >= 15, "15 Willpower gives a death save"],
+    [`Movement ${tot("mv")} / ${moveTarget}`, tot("mv") >= moveTarget, `target for a ${cls.name}`],
+    [`Critical Hit ${tot("crit")}%`, tot("crit") <= 100, tot("crit") > 100 ? "over 100% is wasted" : "100% is the useful maximum"],
+  ];
+  const row = ([k, n, u]) => `<div class="cs-row${k === main ? " main" : ""}"><span>${k === "a" ? `<img class="ri" src="${SMALL.res.armour}" alt="">` : ""}${n}</span>
+    ${["a", "g"].includes(k) ? `<span class="v dim">–</span>` : `<input type="number" inputmode="numeric" data-base="${k}" value="${base[k] ?? ""}" placeholder="0" aria-label="${n} without gear">`}
+    <span class="v">${gear[k] ? (gear[k] > 0 ? "+" : "") + gear[k] : ""}</span><span class="v">${job[k] ? "+" + job[k] : ""}</span><b class="v">${tot(k)}${u || ""}</b></div>`;
+  return `<section class="panel notes">
+    <h2 class="h2">Character sheet</h2>
+    <p>Enter this companion's own attributes from the game, without gear. Gear, armour layers and the profession bonus are added for you. Edit an item's real stats in Gear (tap the item).</p>
+    <div class="cs"><div class="cs-row head"><span>Stat</span><span>Own</span><span class="v">Gear</span><span class="v">Job</span><span class="v">Total</span></div>
+      ${STAT_KEYS.map(row).join("")}
+      <div class="cs-row"><span>Health</span><span class="v dim">2 per Con.</span><span></span><span></span><b class="v">${tot("con") * 2}</b></div></div>
+    ${pf ? `<div class="row"><span class="meta">${esc(pf.n)} rank:</span>${["Novice", "Apprentice", "Experienced", "Journeyman", "Master"].map((r, i) => `<button type="button" class="btn small${rank === i ? " primary" : ""}" data-rank-i="${i}">${r}</button>`).join("")}</div>` : `<p class="note">Choose a profession in Stats & Job to include its bonus.</p>`}
+    <div class="checks">${checks.map(([t, ok, why]) => `<div class="${ok ? "pro" : "con"}">${ok ? "✓" : "✗"} ${esc(t)} <span class="meta">· ${esc(why)}</span></div>`).join("")}</div>
+  </section>${renderNotes(b)}`;
 }
 
 /* ---------- Render ---------- */
@@ -974,7 +1114,9 @@ function renderEquip(cls, b) {
     </div>${rec ? `<p class="why">${esc(rec.why)}</p>` : ""}` : ""}
     <div class="doll">${slotHtml}</div>
     <p class="note">Armour: ${aw.from ? `${esc(aw.from)} can wear ${aw.list.join(", ")} armour.` : "choose a specialisation at Lvl " + cls.tiers.find(t => t.kind === "spec").lv + " to see which armour weights this unit can wear."} Tap a slot to choose gear.</p>
-    ${equipped.length ? `<div class="gearlist">${equipped.map(it => itemRow(it, { attr: `data-info="${esc(it.n)}"` })).join("")}</div>` : ""}
+    ${equipped.length ? `<div class="gearlist">${equipped.map(it => itemRow(it, { attr: `data-info="${esc(it.n)}"` })).join("")}</div><p class="note">Tap an equipped item to enter its real stats for the Sheet tab.</p>` : ""}
+    <h2 class="h2">Armour layers</h2>
+    ${renderLayers(b)}
     <h2 class="h2">Gear by level</h2>
     <p class="note">Best crafted or faction item for each blacksmith tier that matches your picks. Levels per tier follow game.wiki (Ghost at 5, Rimesteel at 8, Akhedian at 11); you also need the matching Blacksmith rank.</p>
     <div class="plan" style="--cols:${planSlots.length}"><div class="plan-row head"><div></div>${planSlots.map(([, l]) => `<div style="text-align:center">${l}</div>`).join("")}</div>${planRows}</div>
@@ -983,7 +1125,7 @@ function renderEquip(cls, b) {
 }
 
 function renderNotes(b) {
-  return `<section class="panel notes">
+  return `<section class="panel notes" style="margin-top:14px">
     <h2 class="h2">Notes</h2>
     <textarea class="box" id="notesIn" placeholder="Attributes to raise, profession, party role…">${esc(b.notes)}</textarea>
     <h2 class="h2">Back up &amp; share</h2>
@@ -1001,14 +1143,14 @@ function render() {
   const b = cur(), cls = byId[b.cls], p = picksOf(b);
   document.getElementById("buildSel").innerHTML = S.builds.map(x => `<option value="${x.id}"${x.id === b.id ? " selected" : ""}>${esc(x.name || "Unnamed")} · ${byId[x.cls].name}</option>`).join("");
   const modes = `<div class="modes" role="tablist">${MODES.map(([id, l]) => `<button type="button" role="tab" data-mode="${id}" aria-selected="${S.mode === id}">${l}</button>`).join("")}</div>`;
-  if (S.mode !== "char") { app.innerHTML = modes + (S.mode === "party" ? renderParty() : S.mode === "craft" ? renderCrafting() : renderCamp()); return; }
+  if (S.mode !== "char") { app.innerHTML = decoHTML(modes + (S.mode === "party" ? renderParty() : S.mode === "craft" ? renderCrafting() : renderCamp())); return; }
   const spec = cls.tiers.find(t => t.kind === "spec"), so = findOpt(cls, p[spec.lv]);
   const mo = b.level >= 15 && findOpt(cls, p[15]);
   const due = cls.tiers.filter(t => status(b, t) === "due"), upcoming = cls.tiers.find(t => t.lv > b.level);
   let next = due.length ? `<strong>${due.length === 1 ? "1 choice" : due.length + " choices"} waiting:</strong> Lvl ${due.map(t => t.lv).join(", ")}`
     : upcoming ? `Next choice at <b>Lvl ${upcoming.lv}</b> · ${KIND_LABEL[upcoming.kind]}` : "Every milestone reached.";
   const rank = b.id === S.party.captain ? "Captain" : b.id === S.party.lieutenant ? "Lieutenant" : "";
-  app.innerHTML = modes + `
+  app.innerHTML = decoHTML(modes + `
   <section class="panel hero">
     <div class="hero-top">
       <div class="portrait">${img(cls.ic)}</div>
@@ -1025,25 +1167,26 @@ function render() {
     <div class="classes" role="group" aria-label="Class">${CLASSES.map(c => `<button type="button" class="cls" data-cls="${c.id}" aria-pressed="${c.id === b.cls}" title="${c.name}" aria-label="${c.name}">${img(c.ic)}</button>`).join("")}</div>
     <p class="blurb"><b style="font-style:normal;color:var(--ink);font-weight:600">${cls.name}</b> · ${esc(cls.role)} · ${esc(cls.weapon)} · ${esc(cls.stat)}. Starting skills: ${cls.start.map(esc).join(", ")}.</p>
   </section>
-  <div class="tabs" role="tablist">${[["spec", "Skills"], ["equip", "Gear"], ["stats", "Stats & Job"], ["notes", "Notes"]].map(([id, l]) => `<button type="button" class="tab" role="tab" data-tab="${id}" aria-selected="${S.tab === id}">${l}</button>`).join("")}</div>
-  ${S.tab === "equip" ? renderEquip(cls, b) : S.tab === "stats" ? renderStats(cls, b) : S.tab === "notes" ? renderNotes(b) : renderSpec(cls, b)}
-  <p class="foot">Skills, items, professions and status effects from the Wartales Fandom wiki; specialisations, unlocks, crafting tiers and stat mechanics from game.wiki (October 2026). Trust the game if numbers differ. Fan-made; Wartales is by Shiro Games.</p>`;
+  <div class="tabs" role="tablist">${[["spec", "Skills"], ["equip", "Gear"], ["stats", "Stats & Job"], ["notes", "Sheet"]].map(([id, l]) => `<button type="button" class="tab" role="tab" data-tab="${id}" aria-selected="${S.tab === id}">${l}</button>`).join("")}</div>
+  ${S.tab === "equip" ? renderEquip(cls, b) : S.tab === "stats" ? renderStats(cls, b) : S.tab === "notes" ? renderSheet(cls, b) : renderSpec(cls, b)}
+  <p class="foot">Skills, items, professions and status effects from the Wartales Fandom wiki; specialisations, unlocks, crafting tiers and stat mechanics from game.wiki (October 2026). Trust the game if numbers differ. Fan-made; Wartales is by Shiro Games.</p>`);
 }
 
 /* ---------- Sheets ---------- */
 const tip = document.getElementById("tip"), picker = document.getElementById("picker");
 function showTip(key) {
   if (!GLOSS[key]) return;
-  document.getElementById("tipTitle").textContent = key;
-  document.getElementById("tipBody").innerHTML = `<p>${linkify(esc(GLOSS[key]))}</p>` + (key === "Censer" ? CENSERS.map(c =>
-    `<p><b>${esc(c.n)}</b> <i>(${esc(c.by)})</i><br>Inhalation: ${linkify(esc(c.inh))}<br>Purge: ${linkify(esc(c.pur))}</p>`).join("") : "");
+  document.getElementById("tipTitle").innerHTML = (SMALL.status[key] ? `<img class="ti" src="${SMALL.status[key]}" alt="">` : "") + esc(key);
+  document.getElementById("tipBody").innerHTML = decoHTML(`<p>${linkify(esc(GLOSS[key]))}</p>` + (key === "Censer" ? CENSERS.map(c =>
+    `<p><b>${esc(c.n)}</b> <i>(${esc(c.by)})</i><br>Inhalation: ${linkify(esc(c.inh))}<br>Purge: ${linkify(esc(c.pur))}</p>`).join("") : ""));
   tip.hidden = false;
 }
 function showItem(name) {
   const it = ITEM[name]; if (!it) return;
   const b = cur(), cls = byId[b.cls], kinds = allowedKinds(cls, b, it.s), ok = kinds.includes(it.k);
   document.getElementById("tipTitle").textContent = it.n;
-  document.getElementById("tipBody").innerHTML = itemRow(it) + `<div class="how">${howToGet(it)}</div>` + `<div class="d-act">${RECIPES[it.n] ? `<button type="button" class="btn small" data-pin="${esc(it.n)}">${S.shop.pins[it.n] ? "Pinned ✓" : "Pin recipe"}</button>` : ""}${ok ? `<button type="button" class="btn primary small" data-equip="${esc(it.n)}">Equip</button>` : ""}</div>`;
+  const eqSlot = SLOTS.map(x => x[0]).find(sl => gearOf(b)[sl] === it.n);
+  document.getElementById("tipBody").innerHTML = decoHTML(itemRow(it) + (eqSlot ? statEditor(b, eqSlot) : "") + `<div class="how">${howToGet(it)}</div>`) + `<div class="d-act">${RECIPES[it.n] ? `<button type="button" class="btn small" data-pin="${esc(it.n)}">${S.shop.pins[it.n] ? "Pinned ✓" : "Pin recipe"}</button>` : ""}${ok ? `<button type="button" class="btn primary small" data-equip="${esc(it.n)}">Equip</button>` : ""}</div>`;
   tip.hidden = false;
 }
 function openPicker(slot) {
@@ -1061,9 +1204,9 @@ function renderPicker() {
   if (pkFilter === "rec") shown = list.slice(0, 8);
   if (pkFilter === "craft") shown = list.filter(x => /^Crafted|^Starting/.test(x.i.how || ""));
   if (pkFilter === "unique") shown = list.filter(x => x.i.r === "Legendary" || /^Unique/.test(x.i.how || ""));
-  document.getElementById("pkBody").innerHTML = (kinds.length ? `<p class="note" style="margin:6px 0">${kinds.map(k => KIND_NAME[k]).join(", ")} · ${list.length} items</p>` : "")
+  document.getElementById("pkBody").innerHTML = decoHTML((kinds.length ? `<p class="note" style="margin:6px 0">${kinds.map(k => KIND_NAME[k]).join(", ")} · ${list.length} items</p>` : "")
     + shown.map((x, n) => itemRow(x.i, { attr: `data-info="${esc(x.i.n)}"`, why: x.why, rec: n < 3 && pkFilter !== "unique" && x.score > 2, on: gear[pkSlot] === x.i.n })).join("")
-    || `<p class="note">Nothing here for this class.</p>`;
+    || `<p class="note">Nothing here for this class.</p>`);
 }
 
 /* ---------- Events ---------- */
@@ -1080,6 +1223,12 @@ document.addEventListener("click", e => {
   if (term) { showTip(term.dataset.term); return; }
   const close = e.target.closest("[data-close]");
   if (close) { document.getElementById(close.dataset.close).hidden = true; return; }
+  const lay = e.target.closest("#picker [data-layer]");
+  if (lay) { const b = cur(); keep(() => { layersOf(b)[+lay.dataset.layer] = lay.dataset.n; }); picker.hidden = true; return; }
+  const unl = e.target.closest("[data-unlayer]");
+  if (unl) { const b = cur(); keep(() => { layersOf(b)[+unl.dataset.unlayer] = undefined; }); picker.hidden = true; return; }
+  const ires = e.target.closest("[data-ireset]");
+  if (ires) { const b = cur(); delete istatsOf(b)[ires.dataset.ireset]; save(); showItem(gearOf(b)[ires.dataset.ireset]); render(); return; }
   const inf = e.target.closest("#picker [data-info]");
   if (inf) { showItem(inf.dataset.info); return; }
   const mat = e.target.closest("[data-mat]");
@@ -1091,7 +1240,7 @@ document.addEventListener("click", e => {
   if (e.target.closest("[data-unequip]")) { keep(() => { delete gearOf(cur())[pkSlot]; }); picker.hidden = true; return; }
   const f = e.target.closest("[data-filter]");
   if (f) { pkFilter = f.dataset.filter; renderPicker(); document.getElementById("pkBody").scrollTop = 0; return; }
-  if (!e.target.closest(".sheet")) { tip.hidden = true; if (!e.target.closest("[data-slot]")) picker.hidden = true; }
+  if (!e.target.closest(".sheet")) { if (!e.target.closest("[data-info], [data-mat]")) tip.hidden = true; if (!e.target.closest("[data-slot], [data-lslot]")) picker.hidden = true; }
   else if (e.target.closest("#picker") && !e.target.closest("#tip")) tip.hidden = true;
 });
 document.addEventListener("keydown", e => { if (e.key === "Escape") { tip.hidden = true; picker.hidden = true; } });
@@ -1121,6 +1270,8 @@ app.addEventListener("click", e => {
   if (t.dataset.clear) return keep(() => { delete p[t.dataset.clear]; delete focus[t.dataset.clear]; });
   if (t.dataset.style) return keep(() => { const g = gearOf(b); g.style = t.dataset.style; if (g.style === "two") delete g.offhand; const w = ITEM[g.weapon]; if (w && !allowedKinds(cls, b, "weapon").includes(w.k)) delete g.weapon; });
   if (t.dataset.slot) return openPicker(t.dataset.slot);
+  if (t.dataset.lslot) return openLayerPicker(+t.dataset.lslot);
+  if (t.dataset.rankI) return keep(() => { (b.rank ||= {})[b.cls] = +t.dataset.rankI; });
   if (t.dataset.job) return keep(() => { b.job[cls.id] = b.job[cls.id] === t.dataset.job ? undefined : t.dataset.job; });
   if (t.dataset.info) return showItem(t.dataset.info);
   switch (t.id) {
@@ -1139,7 +1290,21 @@ app.addEventListener("change", e => {
   const sid = e.target.dataset?.assign; if (!sid) return;
   keep(() => { const a = S.camp.assign; for (const k of Object.keys(a)) a[k] = (a[k] || []).filter(id => id !== e.target.value || k === sid); a[sid] = e.target.value ? [e.target.value] : []; });
 });
+document.addEventListener("input", e => {
+  const d = e.target.dataset || {};
+  if (d.istat) {
+    const b = cur(), it = ITEM[gearOf(b)[d.istat]]; if (!it) return;
+    const st = istatsOf(b), cur0 = itemStats(b, d.istat);
+    st[d.istat] = { item: it.n, vals: { ...cur0.vals, [d.k]: e.target.value === "" ? undefined : +e.target.value } };
+    save(); if (S.tab === "notes") { const y = window.scrollY; render(); window.scrollTo(0, y); }
+  }
+});
 app.addEventListener("input", e => {
+  if (e.target.dataset?.base) {
+    const b = cur(); ((b.base ||= {})[b.cls] ||= {})[e.target.dataset.base] = e.target.value === "" ? undefined : +e.target.value; save();
+    clearTimeout(window.__rt); window.__rt = setTimeout(() => { const f = document.activeElement?.dataset?.base, y = window.scrollY; render(); window.scrollTo(0, y); if (f) { const el = document.querySelector(`[data-base="${f}"]`); el?.focus(); const v = el?.value; if (el) { el.value = ""; el.value = v; } } }, 500);
+    return;
+  }
   if (e.target.dataset?.have) {
     S.shop.have[e.target.dataset.have] = Math.max(0, +e.target.value || 0); save();
     const row = e.target.closest(".sh-row"), m = e.target.dataset.have, get = Math.max(0, (shoppingList()[m] || 0) - S.shop.have[m]);

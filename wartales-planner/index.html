@@ -197,8 +197,8 @@ main { max-width: 640px; margin: 0 auto; padding-block: 14px 48px;
 .ranks { font-size: .8rem; color: var(--dim); margin-top: 2px; }
 
 /* Party and camp */
-.modes { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid #000; background: var(--tab); box-shadow: inset 0 0 0 1px rgba(255,255,255,.05); }
-.modes button { border: 0; background: none; padding: 9px 4px; font-size: 1.02rem; color: var(--muted); letter-spacing: .02em; }
+.modes { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid #000; background: var(--tab); box-shadow: inset 0 0 0 1px rgba(255,255,255,.05); }
+.modes button { border: 0; background: none; padding: 9px 2px; font-size: .96rem; color: var(--muted); letter-spacing: .02em; }
 .modes button[aria-selected="true"] { color: var(--gold-hi); box-shadow: inset 0 -2px 0 var(--gold); background: rgba(198,165,100,.07); }
 .members { display: flex; flex-direction: column; }
 .member { display: grid; grid-template-columns: 44px 1fr; gap: 10px; align-items: center; padding: 8px 2px; border: 0; border-top: 1px solid rgba(255,255,255,.06); background: none; text-align: left; width: 100%; }
@@ -233,6 +233,29 @@ main { max-width: 640px; margin: 0 auto; padding-block: 14px 48px;
 .tiers button[aria-pressed="true"] { border-color: var(--gold); color: var(--gold-hi); }
 .who2 { margin-top: 4px; }
 select.as { margin-top: 5px; width: 100%; padding: 5px 8px; border: 1px solid var(--line); background: #11100f; }
+
+/* Crafting */
+.how { margin-top: 8px; border-top: 1px solid var(--line); padding-top: 8px; display: flex; flex-direction: column; gap: 6px; font-size: .95rem; }
+.htg b { color: var(--gold-hi); font-weight: 600; }
+.ings { display: flex; flex-wrap: wrap; gap: 6px; }
+.ing { border: 1px solid var(--line); background: var(--tab); padding: 3px 8px; text-align: left; }
+.ing b { color: var(--gold-hi); font-weight: 600; }
+.ing small { display: block; font-size: .72rem; color: var(--muted); }
+.pin { display: grid; grid-template-columns: 48px 1fr auto; gap: 10px; align-items: center; padding: 8px 2px; border-top: 1px solid rgba(255,255,255,.06); }
+.pin img.ii { width: 48px; height: 64px; object-fit: contain; }
+.pin .n { font-weight: 600; }
+.qty { display: flex; align-items: center; border: 1px solid var(--line); background: var(--tab); }
+.qty button { width: 34px; height: 34px; border: 0; background: none; color: var(--gold); font-size: 1.2rem; }
+.qty span { min-width: 24px; text-align: center; font-variant-numeric: tabular-nums; }
+.shop { display: flex; flex-direction: column; }
+.sh-row { display: grid; grid-template-columns: minmax(0, 1fr) 46px 64px 46px; gap: 8px; align-items: center; padding: 6px 2px; border-top: 1px solid rgba(255,255,255,.06); font-variant-numeric: tabular-nums; }
+.sh-row.head { border-top: 0; color: var(--muted); font-size: .84rem; }
+.sh-row > span { text-align: right; }
+.sh-row.head > span:first-child { text-align: left; }
+.sh-row .ing { width: 100%; }
+.sh-row input { width: 100%; padding: 4px 6px; border: 1px solid var(--line); background: #11100f; text-align: right; }
+.sh-row .get { color: var(--red); font-weight: 600; }
+.sh-row.done .get { color: var(--green); }
 
 /* Notes tab */
 .notes { padding: 14px; display: flex; flex-direction: column; gap: 10px; }
@@ -329,8 +352,9 @@ const KIND_NAME = { axe1: "One-handed axe", axe2: "Two-handed axe", sword1: "One
   shield: "Shield", throw: "Throwing weapon", melee: "Off-hand weapon", bomb: "Bomb or flask", torch: "Torch",
   heavy: "Heavy", medium: "Medium", light: "Light", belt: "Belt accessory", backpack: "Backpack accessory" };
 const SLOTS = [["helmet", "Helmet"], ["weapon", "Weapon"], ["armour", "Armour"], ["offhand", "Off-hand"], ["belt", "Belt"], ["backpack", "Backpack"]];
-const TIERS = [{ t: 1, lv: "1–3", name: "Iron" }, { t: 2, lv: "4–6", name: "Ghost" }, { t: 3, lv: "7–9", name: "Rimesteel" }, { t: 4, lv: "10–12", name: "Akhedian" }, { t: 5, lv: "13+", name: "Vairmeil" }];
-const tierFor = lv => lv <= 3 ? 1 : lv <= 6 ? 2 : lv <= 9 ? 3 : lv <= 12 ? 4 : 5;
+// Character level for each crafting tier, from game.wiki: Iron at the start, Ghost 5, Rimesteel 8, Akhedian 11, Vairmeil later
+const TIERS = [{ t: 1, lv: "1–4", name: "Iron" }, { t: 2, lv: "5–7", name: "Ghost" }, { t: 3, lv: "8–10", name: "Rimesteel" }, { t: 4, lv: "11–13", name: "Akhedian" }, { t: 5, lv: "14+", name: "Vairmeil" }];
+const tierFor = lv => lv <= 4 ? 1 : lv <= 7 ? 2 : lv <= 10 ? 3 : lv <= 13 ? 4 : 5;
 
 // Build keywords: what the chosen skills care about, matched against item effects
 const KEYS = [
@@ -368,7 +392,7 @@ function sample() {
 let S;
 try { S = JSON.parse(localStorage.getItem(KEY)) || sample(); } catch { S = sample(); }
 if (!S.builds?.length) S = sample();
-S.custom ||= {}; S.tab ||= "spec"; S.mode ||= "char"; S.party ||= {}; S.camp ||= { own: null, assign: {} }; S.camp.own ||= { fire: 1, tent: 1, pot: 1, workshop: 1, gurney: 1, dummy: 1, table: 1 }; S.camp.assign ||= {};
+S.custom ||= {}; S.tab ||= "spec"; S.mode ||= "char"; S.party ||= {}; S.camp ||= { own: null, assign: {} }; S.camp.own ||= { fire: 1, tent: 1, pot: 1, workshop: 1, gurney: 1, dummy: 1, table: 1 }; S.camp.assign ||= {}; S.shop ||= { pins: {}, have: {} };
 S.builds = S.builds.filter(b => byId[b.cls]);
 if (!S.builds.length) S = sample();
 const ITEM = Object.fromEntries(ITEMS.map(i => [i.n, i]));
@@ -683,6 +707,12 @@ function renderParty() {
     <h2 class="h2">Team composition</h2>
     <div class="roles">${["Tank", "Melee", "Reach", "Flanker", "Ranged", "Support", "Healer"].map(r => `<div class="rl${roles[r] ? "" : " zero"}"><b>${roles[r] || 0}</b><span>${r}</span></div>`).join("")}</div>
     ${warns.length ? warns.map(w => `<p class="con">− ${esc(w)}</p>`).join("") : `<p class="pro" style="text-align:center">+ Balanced: frontliners, damage and support are covered.</p>`}
+    ${(() => { const ra = recruitAdvice(party); return `<h2 class="h2">Next recruit</h2>
+    <p class="note">What your party lacks in roles and professions, including supply chains (a Blacksmith needs Iron Ore and Wood). Any companion can learn a profession, but a recruit who already has it saves time.</p>
+    ${ra.picked.map((c, i) => `<div class="lead"><span class="portrait sm">${img(byId[c.cid].ic)}</span><div>
+      <div><b>${i === 0 ? "Best: " : ""}${byId[c.cid].name}${c.spec ? ` (${esc(c.spec)})` : ""}${c.job ? ` who is ${an(c.job)} ${esc(c.job)}` : ""}</b></div>
+      ${c.why.map(w => `<div class="pro">+ ${esc(w)}</div>`).join("")}${c.job && c.f >= 0.5 ? `<div class="pro">+ The ${esc(c.job)} bonus suits a ${byId[c.cid].name}'s ${byId[c.cid].stat}</div>` : ""}</div></div>`).join("")}
+    ${ra.J.length > 2 ? `<p class="note">Also missing: ${ra.J.slice(0, 6).map(x => esc(x.j)).join(", ")}.</p>` : ""}`; })()}
     <h2 class="h2">Captain &amp; Lieutenant</h2>
     <p class="note">The Captain's <b>Galvanize Troops</b> (once per battle, free) gives +1 Valor per ally around them, and the Lieutenant's <b>Tactical Order</b> makes nearby allies earn double Valor, so both belong in the middle of the fight. Either can staff the Strategy Table for +1 Valor per rest, which they can't do while running their profession's camp structure. Changing them later costs Influence.</p>
     <p class="focus">Captain: <b>${cap ? esc(cap.name) : "not chosen"}</b> · Lieutenant: <b>${lt ? esc(lt.name) : "not chosen"}</b></p>
@@ -722,6 +752,120 @@ function renderCamp() {
     ${!S.camp.manual && plan.idle.length ? `<p class="note">Free companions: ${plan.idle.map(b => esc(b.name)).join(", ")}. Build or tick more structures to use them.</p>` : ""}
     <div class="structs">${STRUCTS.map(row).join("")}</div>
     <p class="note">Tip from game.wiki: upgrade the Tent (Valor), Cooking Pot (food) and Training Dummy (XP) first. The Dummy goes to your lowest-level companion.</p>
+  </section>`;
+}
+
+/* ---------- Crafting, materials and recruits ---------- */
+// Recipes (ingredients, blacksmith rank) from game.wiki's weapon and armour pages
+const RECIPES = {"Iron Axe":{"ing":[["Iron Ore",6],["Wood",5],["Leather",2]],"bs":"Apprentice (2)"},"Ghost Axe":{"ing":[["Iron Ore",6],["Wood",5],["White Leather",2],["Coal",6]],"bs":"Experienced (3)"},"Beast's Axe":{"ing":[["Iron Ore",10],["Bone of the Beast",4],["Wood",5],["Coal",10]],"bs":"Apprentice (2)"},"Rimesteel Axe":{"ing":[["Iron Ore",9],["Rimesteel",4],["Wood",5],["Coal",9]],"bs":"Journeyman (4)"},"Akhedian Steel Axe":{"ing":[["Iron Ore",10],["Akhedian Steel",4],["Wood",5],["Coal",10]],"bs":"Master (5)"},"Vairmeil Axe":{"ing":[["Iron Ore",14],["Vairmeil",4],["Wood",5],["Coal",11]],"bs":"Second Master (5)"},"Iron Two-Handed Axe":{"ing":[["Iron Ore",10],["Wood",6],["Leather",4]],"bs":"Apprentice (2)"},"Ghost Great Axe":{"ing":[["Iron Ore",8],["Wood",6],["White Leather",4],["Coal",8]],"bs":"Experienced (3)"},"Rimesteel Great Axe":{"ing":[["Iron Ore",9],["Rimesteel",4],["Wood",5],["Coal",9]],"bs":"Journeyman (4)"},"Beast's Great Axe":{"ing":[["Iron Ore",10],["Bone of the Beast",5],["Wood",6],["Coal",10]],"bs":"Apprentice (2)"},"Akhedian Steel Battle Axe":{"ing":[["Iron Ore",10],["Akhedian Steel",5],["Wood",6],["Coal",10]],"bs":"Master (5)"},"Vairmeil Great Axe":{"ing":[["Iron Ore",15],["Vairmeil",5],["Wood",7],["Coal",11]],"bs":"Second Master (5)"},"Iron Falchion":{"ing":[["Iron Ore",8],["Wood",3],["Leather",2]],"bs":"Apprentice (2)"},"Ghost Gladius":{"ing":[["Iron Ore",6],["Wood",4],["White Leather",2],["Coal",6]],"bs":"Experienced (3)"},"Rimesteel Straight Sword":{"ing":[["Iron Ore",5],["Rimesteel",4],["Wood",6],["Coal",5]],"bs":"Journeyman (4)"},"Beast's Falchion":{"ing":[["Iron Ore",6],["Bone of the Beast",6],["Wood",5],["Coal",6]],"bs":"Apprentice (2)"},"Vairmeil Straight Sword":{"ing":[["Iron Ore",12],["Vairmeil",6],["Wood",6],["Coal",6]],"bs":"Second Master (5)"},"Iron Great Falchion":{"ing":[["Iron Ore",10],["Wood",4],["Leather",4]],"bs":"Apprentice (2)"},"Ghost Great Gladius":{"ing":[["Iron Ore",8],["Wood",4],["White Leather",5],["Coal",8]],"bs":"Experienced (3)"},"Rimesteel Flamberge":{"ing":[["Iron Ore",8],["Rimesteel",5],["Wood",5],["Coal",8]],"bs":"Journeyman (4)"},"Beast's Great Falchion":{"ing":[["Iron Ore",8],["Bone of the Beast",6],["Wood",6],["Coal",8]],"bs":"Apprentice (2)"},"Akhedian Steel Zweih\u00e4nder":{"ing":[["Iron Ore",8],["Akhedian Steel",6],["Wood",6],["Coal",8]],"bs":"Master (5)"},"Vairmeil Claymore":{"ing":[["Iron Ore",14],["Vairmeil",6],["Wood",7],["Coal",8]],"bs":"Second Master (5)"},"Iron Studded Mace":{"ing":[["Iron Ore",6],["Wood",5],["Leather",2]],"bs":"Apprentice (2)"},"Ghost Mace":{"ing":[["Iron Ore",6],["Wood",5],["White Leather",2],["Coal",6]],"bs":"Experienced (3)"},"Beast's Studded Mace":{"ing":[["Iron Ore",6],["Bone of the Beast",6],["Wood",5],["Coal",6]],"bs":"Apprentice (2)"},"Rimesteel Flanged Mace":{"ing":[["Iron Ore",6],["Rimesteel",4],["Wood",4],["Coal",6]],"bs":"Journeyman (4)"},"Akhedian Steel Morning Star":{"ing":[["Iron Ore",6],["Akhedian Steel",6],["Wood",5],["Coal",6]],"bs":"Master (5)"},"Vairmeil Morning Star":{"ing":[["Iron Ore",12],["Vairmeil",6],["Wood",6],["Coal",6]],"bs":"Second Master (5)"},"Iron Two-handed Hammer":{"ing":[["Iron Ore",8],["Wood",8],["Leather",3]],"bs":"Apprentice (2)"},"Ghost Two-Handed Mace":{"ing":[["Iron Ore",7],["Wood",9],["White Leather",3],["Coal",7]],"bs":"Experienced (3)"},"Rimesteel Flanged Great Mace":{"ing":[["Iron Ore",9],["Rimesteel",3],["Wood",8],["Coal",9]],"bs":"Journeyman (4)"},"Beast's Large Studded Mace":{"ing":[["Iron Ore",10],["Bone of the Beast",4],["Wood",9],["Coal",10]],"bs":"Apprentice (2)"},"Akhedian Steel Two-handed Morning Star":{"ing":[["Iron Ore",10],["Akhedian Steel",4],["Wood",9],["Coal",10]],"bs":"Master (5)"},"Vairmeil Two-Handed Morning Star":{"ing":[["Iron Ore",14],["Vairmeil",4],["Wood",10],["Coal",11]],"bs":"Second Master (5)"},"Iron Dagger":{"ing":[["Iron Ore",7],["Wood",3],["Leather",3]],"bs":"Apprentice (2)"},"Ghost Billhook":{"ing":[["Iron Ore",6],["Wood",3],["White Leather",3],["Coal",6]],"bs":"Experienced (3)"},"Rimesteel Ballsy Blade":{"ing":[["Iron Ore",7],["Wood",3],["Rimesteel",3],["Coal",7]],"bs":"Journeyman (4)"},"Beast's Dagger":{"ing":[["Iron Ore",8],["Bone of the Beast",5],["Wood",3],["Coal",8]],"bs":"Apprentice (2)"},"Akhedian Steel Stiletto":{"ing":[["Iron Ore",8],["Akhedian Steel",5],["Wood",3],["Coal",8]],"bs":"Master (5)"},"Vairmeil Dagger":{"ing":[["Iron Ore",13],["Vairmeil",5],["Wood",3],["Coal",9]],"bs":"Second Master (5)"},"Iron Spear":{"ing":[["Iron Ore",5],["Wood",7],["Leather",3]],"bs":"Apprentice (2)"},"Ghost Pike":{"ing":[["Iron Ore",5],["Wood",6],["White Leather",3],["Coal",5]],"bs":"Experienced (3)"},"Rimesteel Halberd":{"ing":[["Iron Ore",5],["Rimesteel",4],["Cloth",8],["Coal",5]],"bs":"Journeyman (4)"},"Akhedian Steel Corseque":{"ing":[["Iron Ore",6],["Akhedian Steel",5],["Cloth",10],["Coal",6]],"bs":"Master (5)"},"Beast's Hunting Spear":{"ing":[["Iron Ore",6],["Bone of the Beast",5],["Cloth",10],["Coal",6]],"bs":"Apprentice (2)"},"Vairmeil Partisan":{"ing":[["Iron Ore",11],["Vairmeil",5],["Wood",10],["Coal",7]],"bs":"Second Master (5)"},"Longbow":{"ing":[["Iron Ore",3],["Wood",6],["Leather",3],["Rope",4]],"bs":"Apprentice (2)"},"Ghostly Bow":{"ing":[["Iron Ore",3],["Wood",8],["White Leather",3],["Rope",5]],"bs":"Experienced (3)"},"Rimesteel Bow":{"ing":[["Iron Ore",5],["Wood",9],["Rope",5],["Rimesteel",3]],"bs":"Journeyman (4)"},"Akhedian Steel Bow":{"ing":[["Iron Ore",6],["Akhedian Steel",5],["Wood",10],["Rope",5]],"bs":"Master (5)"},"Beast's Bow":{"ing":[["Iron Ore",6],["Bone of the Beast",5],["Wood",10],["Rope",5]],"bs":"Apprentice (2)"},"Vairmeil Bow":{"ing":[["Iron Ore",11],["Vairmeil",5],["Wood",11],["Rope",5]],"bs":"Second Master (5)"},"Iron Crossbow":{"ing":[["Iron Ore",3],["Wood",6],["Leather",3],["Rope",4]],"bs":"Apprentice (2)"},"Ghost Crossbow":{"ing":[["Iron Ore",3],["Wood",8],["White Leather",3],["Rope",5]],"bs":"Experienced (3)"},"Rimesteel Crossbow":{"ing":[["Iron Ore",5],["Wood",9],["Rope",5],["Rimesteel",3]],"bs":"Journeyman (4)"},"Akhedian Steel Crossbow":{"ing":[["Iron Ore",6],["Akhedian Steel",5],["Wood",10],["Rope",5]],"bs":"Master (5)"},"Beast's Crossbow":{"ing":[["Iron Ore",6],["Bone of the Beast",5],["Wood",10],["Rope",5]],"bs":"Apprentice (2)"},"Vairmeil Crossbow":{"ing":[["Iron Ore",11],["Vairmeil",5],["Wood",11],["Rope",5]],"bs":"Second Master (5)"},"Iron Katar":{"ing":[["Iron Ore",6],["Wood",3],["Leather",4]],"bs":"Apprentice (2)"},"Ghost Claw":{"ing":[["Iron Ore",5],["Coal",5],["White Leather",4],["Colossal Paw",1]],"bs":"Experienced (3)"},"Rimesteel Cestus":{"ing":[["Iron Ore",7],["Rimesteel",3],["Raw Materials",3],["Coal",7]],"bs":"Journeyman (4)"},"Akhedian Steel Katar":{"ing":[["Iron Ore",8],["Akhedian Steel",5],["Raw Materials",3],["Coal",8]],"bs":"Master (5)"},"Beast's Claw":{"ing":[["Iron Ore",8],["Bone of the Beast",5],["Raw Materials",3],["Coal",8]],"bs":"Apprentice (2)"},"Vairmeil Cestus":{"ing":[["Iron Ore",13],["Vairmeil",5],["Raw Materials",3],["Coal",9]],"bs":"Second Master (5)"},"Stoneware Censer":{"ing":[["Wood",3],["Iron Ore",6],["Vial",1]],"bs":"Apprentice (2)"},"Ghost Censer":{"ing":[["Iron Ore",4],["Coal",4],["White Leather",2],["Red Eyeball",1]],"bs":"Experienced (3)"},"Froststeel Censer":{"ing":[["Iron Ore",5],["Rimesteel",3],["Raw Materials",3],["Coal",5]],"bs":"Journeyman (4)"},"Akhedian Steel Censer":{"ing":[["Iron Ore",7],["Akhedian Steel",4],["Raw Materials",3],["Coal",7]],"bs":"Master (5)"},"Vairmeil Censer":{"ing":[["Iron Ore",10],["Vairmeil",3],["Raw Materials",3],["Coal",8]],"bs":"Second Master (5)"},"Targe":{"ing":[["Iron Ore",2],["Wood",4],["Leather",1]],"bs":"Apprentice (2)"},"Reinforced Buckler":{"ing":[["Iron Ore",5],["Wood",6],["Leather",3]],"bs":"Apprentice (2)"},"Ghost Buckler":{"ing":[["White Leather",3],["Iron Ore",6],["Wood",4],["Coal",6]],"bs":"Experienced (3)"},"Rimesteel Heater Shield":{"ing":[["Iron Ore",7],["Rimesteel",4],["Cloth",2],["Coal",7]],"bs":"Journeyman (4)"},"Akhedian Steel Heavy Heater Shield":{"ing":[["Iron Ore",9],["Akhedian Steel",6],["Cloth",3],["Coal",9]],"bs":"Master (5)"},"Vairmeil Shield":{"ing":[["Iron Ore",11],["Vairmeil",6],["Cloth",4],["Coal",10],["Wood",14]],"bs":"Second Master (5)"},"Padded Jacket":{"ing":[["Iron Ore",4],["Leather",8],["Cloth",5]],"bs":"Apprentice (2)"},"Ghost Cloak":{"ing":[["Iron Ore",4],["Cloth",8],["White Leather",6],["Coal",4]],"bs":"Experienced (3)"},"Akhedian Steel Waistcoat":{"ing":[["Iron Ore",7],["Akhedian Steel",6],["Coal",7],["Cloth",12]],"bs":"Master (5)"},"Vairmeil Doublet":{"ing":[["Iron Ore",13],["Vairmeil",6],["Coal",8]],"bs":"Second Master (5)"},"Padded Brigandine":{"ing":[["Iron Ore",8],["Cloth",5],["Leather",5]],"bs":"Apprentice (2)"},"Ghost Spaulder":{"ing":[["Iron Ore",6],["Cloth",5],["White Leather",6],["Coal",6]],"bs":"Experienced (3)"},"Rimesteel Gambeson":{"ing":[["Iron Ore",6],["Rimesteel",8],["Cloth",6],["Coal",6]],"bs":"Journeyman (4)"},"Akhedian Steel Spaulder":{"ing":[["Iron Ore",6],["Akhedian Steel",10],["Coal",6],["Cloth",6]],"bs":"Master (5)"},"Vairmeil Gambeson":{"ing":[["Iron Ore",16],["Vairmeil",10],["Coal",6]],"bs":"Second Master (5)"},"Reinforced Plate Armour":{"ing":[["Iron Ore",14],["Cloth",4]],"bs":"Apprentice (2)"},"Ghost Breastplate":{"ing":[["Iron Ore",9],["Cloth",2],["White Leather",4],["Coal",9]],"bs":"Experienced (3)"},"Rimesteel Battleplate":{"ing":[["Iron Ore",10],["Cloth",2],["Rimesteel",7],["Coal",10]],"bs":"Journeyman (4)"},"Akhedian Steel Battleplate":{"ing":[["Iron Ore",11],["Cloth",3],["Akhedian Steel",9],["Coal",11]],"bs":"Master (5)"},"Vairmeil Plate Armour":{"ing":[["Iron Ore",20],["Vairmeil",9],["Coal",12]],"bs":"Second Master (5)"},"Hat":{"ing":[["Rope",1],["Leather",2],["Cloth",2]],"bs":"Apprentice (2)"},"Ghost Headband":{"ing":[["Rope",2],["Leather",2],["White Leather",3],["Cloth",3]],"bs":"Experienced (3)"},"Rimesteel Hat":{"ing":[["Rope",3],["Rimesteel",3],["Cloth",2],["Leather",2]],"bs":"Journeyman (4)"},"Akhedian Steel Beret":{"ing":[["Rope",3],["Akhedian Steel",3],["Leather",3],["Cloth",3]],"bs":"Master (5)"},"Vairmeil Coif":{"ing":[["Rope",3],["Vairmeil",3],["Iron Ore",3],["Leather",4]],"bs":"Second Master (5)"},"Iron Barbute":{"ing":[["Iron Ore",3],["Leather",2],["Raw Materials",2]],"bs":"Apprentice (2)"},"Ghost Boar Helm":{"ing":[["Iron Ore",3],["Leather",1],["White Leather",3],["Raw Materials",1]],"bs":"Experienced (3)"},"Rimesteel Morion":{"ing":[["Leather",2],["Rimesteel",4],["Cloth",3],["Raw Materials",1]],"bs":"Journeyman (4)"},"Akhedian Steel Kettle Hat":{"ing":[["Cloth",3],["Akhedian Steel",4],["Leather",3],["Raw Materials",2]],"bs":"Master (5)"},"Vairmeil Barbute":{"ing":[["Vairmeil",4],["Iron Ore",4],["Leather",4],["Raw Materials",2]],"bs":"Second Master (5)"},"Iron Bascinet":{"ing":[["Iron Ore",5],["Leather",1],["Raw Materials",1]],"bs":"Apprentice (2)"},"Ghost Ursine Helm":{"ing":[["Iron Ore",3],["Leather",2],["White Leather",2],["Coal",3]],"bs":"Experienced (3)"},"Rimesteel Armet":{"ing":[["Iron Ore",3],["Rimesteel",3],["Leather",3],["Coal",3]],"bs":"Journeyman (4)"},"Akhedian Steel Sallet":{"ing":[["Iron Ore",4],["Akhedian Steel",3],["Coal",4],["Leather",4]],"bs":"Master (5)"},"Vairmeil Sallet":{"ing":[["Iron Ore",7],["Vairmeil",3],["Coal",5],["Leather",5]],"bs":"Second Master (5)"}};
+// Where materials come from, summarised from game.wiki's resource pages. job: profession that gathers or makes it
+const MATS = {
+  "Iron Ore": { job: "Miner", get: "Mine iron veins in mines (pay, threaten or persuade the foreman) and one-off deposits on hillsides: 7–10 per node.", buy: "Blacksmiths and marketplace traders; small amounts from dismantling gear at the Workshop." },
+  "Wood": { job: "Woodcutter", get: "Chopping blocks at sawmills, logging camps, farms and bandit camps (9–12 each; anyone with an axe can chop, Woodcutters get more) and tree stumps.", buy: "Marketplace traders." },
+  "Leather": { get: "Tanning Rack turns animal carcasses into Leather during rest.", buy: "Marketplace traders and some general merchants; loot." },
+  "White Leather": { get: "Tanning Rack at Tier 2 turns Ghost Carcasses (from Ghost Packs in foggy forests at night) into White Leather.", buy: "Rare: some Trackers Camps and specialised merchants." },
+  "Coal": { get: "An upgraded Campfire burns up to 10 Wood into 10 Coal each rest.", buy: "Blacksmith merchants and some marketplace traders." },
+  "Cloth": { get: "No gathering profession: loot from humanoid enemies, dismantle helmets and hoods at the Workshop.", buy: "The Drapery (Vertruse), Shabby Camp (Arthes), Marheim Market, town blacksmiths, roaming merchants." },
+  "Rope": { job: "Tinkerer", get: "A Tinkerer makes it at the Workshop from Hemp, picked up at farms; Tiltren Prison refills every few days.", buy: "Town smithies and wandering merchants." },
+  "Rimesteel": { job: "Alchemist", get: "Experienced Alchemist makes it from Grey Clusters (Experienced Miner, or Gold Caravan merchants) and Alazarian Powder (Alchemist byproduct). Journeyman Miners can also find Rimesteel ore.", buy: "Limited stock at Gosenberg Apothecary, Grinmeer Apothecary Clinic and lit-wagon traveling merchants." },
+  "Akhedian Steel": { job: "Alchemist", get: "Journeyman Alchemist makes it from Etherite (Journeyman Miner) and Alchemical Residue (Journeyman Alchemist byproduct).", buy: "Belerion blacksmiths sell Akhedian ingots (Pirates of Belerion DLC)." },
+  "Vairmeil": { job: "Alchemist", get: "Master Alchemist makes it from Carmine Tanbark, gathered by a skilled Woodcutter.", buy: "Not sold." },
+  "Bone of the Beast": { get: "From the creatures of The Beast Hunt DLC.", buy: "—" },
+  "Raw Materials": { job: "Tinkerer", get: "The Workshop makes 2 per rest when a Tinkerer staffs it.", buy: "—" },
+};
+const an = w => /^[AEIOU]/i.test(w) ? "an" : "a";
+const SETCAT = { axe1: "Weapons I", sword1: "Weapons I", mace1: "Weapons I", axe2: "Weapons II", sword2: "Weapons II", mace2: "Weapons II", bow: "Weapons III", crossbow: "Weapons III", polearm: "Weapons III",
+  dagger: "Weapons IV", brawl: "Weapons IV", throw: "Left Hand", shield: "Shields", heavy: "Armor", medium: "Armor", light: "Armor" };
+const RANKS = ["", "Apprentice", "Experienced", "Journeyman", "Master", "Second Master"];
+function howToGet(it) {
+  const r = RECIPES[it.n], out = [];
+  if (r) {
+    const rank = r.bs.replace(/\s*\(\d\)/, "");
+    const cat = it.s === "helmet" ? "Helmets" : SETCAT[it.k] || "";
+    const beast = /^Beast/.test(it.n);
+    out.push(`<div class="htg"><b>Craft it</b> at the Anvil with ${an(rank)} <b>${esc(rank)} Blacksmith</b>.</div>`);
+    out.push(`<div class="ings">${r.ing.map(([m, n]) => `<button type="button" class="ing" data-mat="${esc(m)}"><b>${n}×</b> ${esc(m)}</button>`).join("")}</div>`);
+    out.push(`<div class="meta">Recipe: ${beast ? "Beast Blacksmith Set (The Beast Hunt)" : `${esc(rank)} Blacksmith Set${cat ? " · " + cat : ""}`}. ${beast ? "Unlocked through The Beast Hunt scenario." : it.t > 1
+      ? `Unlock it in the Compendium: reach ${esc(rank)} Blacksmith, craft any ${TIERS[it.t - 2].name}-tier item, then spend 1 Knowledge Point.`
+      : "Unlock it in the Compendium: level up the Blacksmith and spend 1 Knowledge Point."} Knowledge comes from discovering places and the Lectern (Scholar).</div>`);
+  } else if (/^Dropped by/.test(it.how || "")) out.push(`<div class="htg"><b>Loot it:</b> ${esc(it.how.replace(/^Dropped by/, "dropped by"))}. Merchants sometimes sell faction gear too.</div>`);
+  else if (/^Unique/.test(it.how || "")) out.push(`<div class="htg"><b>Unique:</b> ${esc(it.how.replace(/^Unique · /, ""))}. Upgrade it at the Brotherhood Training Grounds to keep it at your level.</div>`);
+  else if (it.how) out.push(`<div class="htg"><b>Source:</b> ${esc(it.how)}</div>`);
+  return out.join("");
+}
+function showMat(m) {
+  const d = MATS[m] || { get: "See the wiki for sources.", buy: "" };
+  const who = d.job ? S.builds.filter(b => jobOf(b) === d.job) : [];
+  document.getElementById("tipTitle").textContent = m;
+  document.getElementById("tipBody").innerHTML = `<p><b>Gather or make:</b> ${esc(d.get)}</p>${d.buy ? `<p><b>Buy:</b> ${esc(d.buy)}</p>` : ""}
+    ${d.job ? `<p><i>${who.length ? `Your ${esc(d.job)}: ${who.map(b => esc(b.name)).join(", ")}.` : `Nobody in your party is ${an(d.job)} ${esc(d.job)}.`}</i></p>` : ""}`;
+  tip.hidden = false;
+}
+function shoppingList() {
+  const need = {};
+  for (const [n, q] of Object.entries(S.shop.pins)) { const r = RECIPES[n]; if (r) for (const [m, k] of r.ing) need[m] = (need[m] || 0) + k * q; }
+  return need;
+}
+
+function recruitAdvice(party) {
+  const roles = {}; for (const b of party) { const r = roleOf(b); roles[r] = (roles[r] || 0) + 1; }
+  const jobs = new Set(party.map(jobOf).filter(Boolean));
+  const avgLv = party.reduce((a, b) => a + b.level, 0) / Math.max(1, party.length);
+  const shop = shoppingList();
+  const R = [], J = [];
+  if (!roles.Tank) R.push({ r: "Tank", w: 3, why: "No tank to hold the front line." });
+  if ((roles.Tank || 0) + (roles.Melee || 0) < 2) R.push({ r: "Melee", w: 2.4, why: "Fewer than two frontliners." });
+  if (!roles.Healer && party.length >= 3) R.push({ r: "Healer", w: 2, why: "No healer beyond First Aid." });
+  if (!roles.Ranged && party.length >= 3) R.push({ r: "Ranged", w: 1.6, why: "Nobody attacks from range." });
+  if (!roles.Reach && !roles.Support && party.length >= 4) R.push({ r: "Reach", w: 1.2, why: "A Spearman supports from behind the front line." });
+  const want = (j, w, why) => { if (!jobs.has(j)) J.push({ j, w, why }); };
+  want("Blacksmith", 3, "Nobody can forge gear.");
+  want("Tinkerer", 2.6, "Needed for camp tools, the Workshop, Raw Materials and Rope.");
+  want("Cook", 2.4, "A Cook at the Cooking Pot saves 2–6 food every day.");
+  if (jobs.has("Blacksmith") || shop["Iron Ore"]) want("Miner", 2.3 + (shop["Iron Ore"] ? 0.5 : 0), "Every recipe uses Iron Ore; mining beats buying. Experienced Miners also find Grey Clusters for Rimesteel.");
+  if (jobs.has("Blacksmith") || shop["Wood"] || shop["Coal"]) want("Woodcutter", 1.8 + (shop["Wood"] || shop["Coal"] ? 0.4 : 0), "Wood goes into weapons and shields, and into Coal at the Campfire; skilled Woodcutters find Carmine Tanbark for Vairmeil.");
+  want("Alchemist", avgLv >= 5 || shop["Rimesteel"] || shop["Akhedian Steel"] || shop["Vairmeil"] ? 2.5 : 1.4, "From Rimesteel tier (level 8) on, every crafted item needs an Alchemist's alloy.");
+  want("Scholar", 1.2, "The Lectern earns Knowledge to unlock recipes.");
+  if (jobs.has("Cook")) { want("Angler", 0.9, "Fish keeps your Cook supplied."); want("Huntsman", 0.8, "Game from burrows keeps your Cook supplied."); }
+  want("Bard", 0.8, "The Lute gives every companion +1 Willpower.");
+  R.sort((a, b) => b.w - a.w); J.sort((a, b) => b.w - a.w);
+  const ROLE_CLASS = { Tank: [["swordsman", "Protector"], ["warrior", "Sentinel"], ["brute", "Destroyer"]], Melee: [["warrior", ""], ["brute", ""], ["pugilist", ""]], Healer: [["thaumaturge", "Healer"]], Ranged: [["archer", ""], ["crossbowman", ""]], Reach: [["spearman", ""]] };
+  const ANY = [["warrior", ""], ["swordsman", ""], ["archer", ""], ["spearman", ""], ["thaumaturge", ""], ["ranger", ""], ["brute", ""], ["crossbowman", ""], ["pugilist", ""]];
+  const fit = (cid, j) => { const pf = PROFS.find(p => p.n === j); if (!pf) return 0; const st = byId[cid].stat === "Strength" ? "str" : "dex"; return (pf.m[st] || 0) / 10 + (pf.m.crit || 0) / 24 + ((pf.m.con || 0) && ["swordsman", "warrior", "brute"].includes(cid) ? 0.3 : 0) + ((pf.m.wil || 0) > 0 && FRONTLINE.includes(cid) ? 0.25 : 0); };
+  const combos = [];
+  const roleOpts = R.length ? R.slice(0, 3) : [{ r: "", w: 0, why: "" }];
+  const jobOpts = J.length ? J.slice(0, 4) : [{ j: "", w: 0, why: "" }];
+  for (const ro of roleOpts) for (const jo of jobOpts) {
+    for (const [cid, spec] of (ROLE_CLASS[ro.r] || ANY)) {
+      const f = jo.j ? fit(cid, jo.j) : 0;
+      combos.push({ cid, spec, job: jo.j, score: ro.w + jo.w + f * 1.5, why: [ro.why, jo.why].filter(Boolean), f, role: ro.r });
+    }
+  }
+  combos.sort((a, b) => b.score - a.score);
+  const picked = [], seen = new Set();
+  for (const c of combos) { const k = c.cid + c.job, k2 = c.role + "|" + c.job; if (seen.has(k) || seen.has(k2)) continue; seen.add(k); seen.add(k2); picked.push(c); if (picked.length === 3) break; }
+  return { picked, R, J };
+}
+
+function renderCrafting() {
+  const pins = Object.entries(S.shop.pins), need = shoppingList(), have = S.shop.have;
+  const bsmith = S.builds.filter(b => jobOf(b) === "Blacksmith");
+  const ranks = pins.map(([n]) => RECIPES[n]?.bs.replace(/\s*\(\d\)/, "")).filter(Boolean);
+  const top = ranks.sort((a, b) => RANKS.indexOf(b) - RANKS.indexOf(a))[0];
+  return `<section class="panel equip" aria-label="Crafting">
+    <h2 class="h2">Pinned recipes</h2>
+    ${pins.length ? pins.map(([n, q]) => { const it = ITEM[n]; return `<div class="pin">${img(it?.ic, "ii")}<div><span class="n r-${esc(it?.r || "Common")}">${esc(n)}</span>
+      <div class="meta">${esc(RECIPES[n]?.bs.replace(/\s*\(\d\)/, "") || "")} Blacksmith · ${RECIPES[n].ing.map(([m, k]) => `${k} ${m}`).join(", ")}</div></div>
+      <div class="qty"><button type="button" data-pinq="${esc(n)}" data-d="-1" aria-label="Fewer">−</button><span>${q}</span><button type="button" data-pinq="${esc(n)}" data-d="1" aria-label="More">+</button></div></div>`; }).join("")
+      : `<p class="note">Nothing pinned yet. Open any craftable item (in Gear, tap a slot or a gear-by-level item) and tap <b>Pin recipe</b>.</p>`}
+    ${pins.length ? `<p class="note">${bsmith.length ? `Your Blacksmith: ${bsmith.map(b => esc(b.name)).join(", ")}.` : "Nobody in your party is a Blacksmith yet."} ${top ? `These recipes need ${an(top)} <b>${esc(top)}</b> Blacksmith.` : ""}</p>` : ""}
+    ${pins.length ? `<h2 class="h2">Shopping list</h2>
+    <p class="note">Enter how much you already have; the list shows what is still missing. Tap a material to see where to gather or buy it.</p>
+    <div class="shop"><div class="sh-row head"><span>Material</span><span>Need</span><span>Have</span><span>Get</span></div>
+    ${Object.entries(need).map(([m, n]) => { const h = +have[m] || 0, get = Math.max(0, n - h), d = MATS[m], who = d?.job && S.builds.some(b => jobOf(b) === d.job);
+      return `<div class="sh-row${get ? "" : " done"}"><button type="button" class="ing" data-mat="${esc(m)}">${esc(m)}${d?.job ? `<small>${who ? "your " : "needs "}${esc(d.job)}</small>` : ""}</button><span>${n}</span>
+        <input type="number" min="0" inputmode="numeric" data-have="${esc(m)}" value="${h || ""}" placeholder="0" aria-label="${esc(m)} you have"><span class="get">${get ? get : "✓"}</span></div>`; }).join("")}</div>
+    <div class="row" style="justify-content:flex-end"><button type="button" class="btn small danger" id="clearShop">Clear list</button></div>` : ""}
   </section>`;
 }
 
@@ -817,9 +961,9 @@ function renderEquip(cls, b) {
     </div>${rec ? `<p class="why">${esc(rec.why)}</p>` : ""}` : ""}
     <div class="doll">${slotHtml}</div>
     <p class="note">Armour: ${aw.from ? `${esc(aw.from)} can wear ${aw.list.join(", ")} armour.` : "choose a specialisation at Lvl " + cls.tiers.find(t => t.kind === "spec").lv + " to see which armour weights this unit can wear."} Tap a slot to choose gear.</p>
-    ${equipped.length ? `<div class="gearlist">${equipped.map(it => itemRow(it, { attr: `data-slot="${it.s}"` })).join("")}</div>` : ""}
+    ${equipped.length ? `<div class="gearlist">${equipped.map(it => itemRow(it, { attr: `data-info="${esc(it.n)}"` })).join("")}</div>` : ""}
     <h2 class="h2">Gear by level</h2>
-    <p class="note">Best crafted or faction item for each blacksmith tier that matches your picks. Tiers unlock as your blacksmith ranks up, so treat the levels as a rough guide.</p>
+    <p class="note">Best crafted or faction item for each blacksmith tier that matches your picks. Levels per tier follow game.wiki (Ghost at 5, Rimesteel at 8, Akhedian at 11); you also need the matching Blacksmith rank.</p>
     <div class="plan" style="--cols:${planSlots.length}"><div class="plan-row head"><div></div>${planSlots.map(([, l]) => `<div style="text-align:center">${l}</div>`).join("")}</div>${planRows}</div>
     ${uniques.length ? `<h2 class="h2">Legendary items worth getting</h2><div class="gearlist">${uniques.map(x => itemRow(x.i, { attr: `data-info="${esc(x.i.n)}"`, why: x.why })).join("")}</div>` : ""}
   </section>`;
@@ -839,12 +983,12 @@ function renderNotes(b) {
   </section>`;
 }
 
-const MODES = [["char", "Character"], ["party", "Party"], ["camp", "Camp"]];
+const MODES = [["char", "Character"], ["party", "Party"], ["camp", "Camp"], ["craft", "Crafting"]];
 function render() {
   const b = cur(), cls = byId[b.cls], p = picksOf(b);
   document.getElementById("buildSel").innerHTML = S.builds.map(x => `<option value="${x.id}"${x.id === b.id ? " selected" : ""}>${esc(x.name || "Unnamed")} · ${byId[x.cls].name}</option>`).join("");
   const modes = `<div class="modes" role="tablist">${MODES.map(([id, l]) => `<button type="button" role="tab" data-mode="${id}" aria-selected="${S.mode === id}">${l}</button>`).join("")}</div>`;
-  if (S.mode !== "char") { app.innerHTML = modes + (S.mode === "party" ? renderParty() : renderCamp()); return; }
+  if (S.mode !== "char") { app.innerHTML = modes + (S.mode === "party" ? renderParty() : S.mode === "craft" ? renderCrafting() : renderCamp()); return; }
   const spec = cls.tiers.find(t => t.kind === "spec"), so = findOpt(cls, p[spec.lv]);
   const mo = b.level >= 15 && findOpt(cls, p[15]);
   const due = cls.tiers.filter(t => status(b, t) === "due"), upcoming = cls.tiers.find(t => t.lv > b.level);
@@ -886,7 +1030,7 @@ function showItem(name) {
   const it = ITEM[name]; if (!it) return;
   const b = cur(), cls = byId[b.cls], kinds = allowedKinds(cls, b, it.s), ok = kinds.includes(it.k);
   document.getElementById("tipTitle").textContent = it.n;
-  document.getElementById("tipBody").innerHTML = itemRow(it) + (ok ? `<div class="d-act"><button type="button" class="btn primary small" data-equip="${esc(it.n)}">Equip</button></div>` : "");
+  document.getElementById("tipBody").innerHTML = itemRow(it) + `<div class="how">${howToGet(it)}</div>` + `<div class="d-act">${RECIPES[it.n] ? `<button type="button" class="btn small" data-pin="${esc(it.n)}">${S.shop.pins[it.n] ? "Pinned ✓" : "Pin recipe"}</button>` : ""}${ok ? `<button type="button" class="btn primary small" data-equip="${esc(it.n)}">Equip</button>` : ""}</div>`;
   tip.hidden = false;
 }
 function openPicker(slot) {
@@ -905,7 +1049,7 @@ function renderPicker() {
   if (pkFilter === "craft") shown = list.filter(x => /^Crafted|^Starting/.test(x.i.how || ""));
   if (pkFilter === "unique") shown = list.filter(x => x.i.r === "Legendary" || /^Unique/.test(x.i.how || ""));
   document.getElementById("pkBody").innerHTML = (kinds.length ? `<p class="note" style="margin:6px 0">${kinds.map(k => KIND_NAME[k]).join(", ")} · ${list.length} items</p>` : "")
-    + shown.map((x, n) => itemRow(x.i, { attr: `data-equip="${esc(x.i.n)}"`, why: x.why, rec: n < 3 && pkFilter !== "unique" && x.score > 2, on: gear[pkSlot] === x.i.n })).join("")
+    + shown.map((x, n) => itemRow(x.i, { attr: `data-info="${esc(x.i.n)}"`, why: x.why, rec: n < 3 && pkFilter !== "unique" && x.score > 2, on: gear[pkSlot] === x.i.n })).join("")
     || `<p class="note">Nothing here for this class.</p>`;
 }
 
@@ -923,12 +1067,19 @@ document.addEventListener("click", e => {
   if (term) { showTip(term.dataset.term); return; }
   const close = e.target.closest("[data-close]");
   if (close) { document.getElementById(close.dataset.close).hidden = true; return; }
+  const inf = e.target.closest("#picker [data-info]");
+  if (inf) { showItem(inf.dataset.info); return; }
+  const mat = e.target.closest("[data-mat]");
+  if (mat && !e.target.closest("#app input")) { showMat(mat.dataset.mat); return; }
+  const pin = e.target.closest("[data-pin]");
+  if (pin) { const n = pin.dataset.pin; if (S.shop.pins[n]) delete S.shop.pins[n]; else S.shop.pins[n] = 1; save(); showItem(n); if (S.mode !== "char") render(); return; }
   const eq = e.target.closest("[data-equip]");
   if (eq) { const it = ITEM[eq.dataset.equip], b = cur(); keep(() => { gearOf(b)[it.s] = it.n; }); picker.hidden = true; tip.hidden = true; return; }
   if (e.target.closest("[data-unequip]")) { keep(() => { delete gearOf(cur())[pkSlot]; }); picker.hidden = true; return; }
   const f = e.target.closest("[data-filter]");
   if (f) { pkFilter = f.dataset.filter; renderPicker(); document.getElementById("pkBody").scrollTop = 0; return; }
   if (!e.target.closest(".sheet")) { tip.hidden = true; if (!e.target.closest("[data-slot]")) picker.hidden = true; }
+  else if (e.target.closest("#picker") && !e.target.closest("#tip")) tip.hidden = true;
 });
 document.addEventListener("keydown", e => { if (e.key === "Escape") { tip.hidden = true; picker.hidden = true; } });
 
@@ -937,6 +1088,9 @@ app.addEventListener("click", e => {
   const t = e.target.closest("button"); if (!t) return;
   const b = cur(), cls = byId[b.cls], p = picksOf(b);
   if (t.dataset.mode) return keep(() => { S.mode = t.dataset.mode; });
+  if (t.dataset.pinq) return keep(() => { const n = t.dataset.pinq, q = (S.shop.pins[n] || 0) + +t.dataset.d; if (q <= 0) delete S.shop.pins[n]; else S.shop.pins[n] = Math.min(99, q); });
+  if (t.id === "clearShop") return keep(() => { S.shop = { pins: {}, have: {} }; });
+  if (t.dataset.mat) return;
   if (t.dataset.open) return keep(() => { S.active = t.dataset.open; S.mode = "char"; });
   if (t.dataset.rank) return keep(() => { const other = t.dataset.rank === "captain" ? "lieutenant" : "captain"; if (S.party[other] === t.dataset.id) delete S.party[other]; S.party[t.dataset.rank] = t.dataset.id; });
   if (t.id === "addMember") { const nb = newBuild(); S.builds.push(nb); S.active = nb.id; S.mode = "char"; S.tab = "spec"; save(); render(); window.scrollTo(0, 0); document.getElementById("nameIn").select(); return; }
@@ -973,6 +1127,11 @@ app.addEventListener("change", e => {
   keep(() => { const a = S.camp.assign; for (const k of Object.keys(a)) a[k] = (a[k] || []).filter(id => id !== e.target.value || k === sid); a[sid] = e.target.value ? [e.target.value] : []; });
 });
 app.addEventListener("input", e => {
+  if (e.target.dataset?.have) {
+    S.shop.have[e.target.dataset.have] = Math.max(0, +e.target.value || 0); save();
+    const row = e.target.closest(".sh-row"), m = e.target.dataset.have, get = Math.max(0, (shoppingList()[m] || 0) - S.shop.have[m]);
+    row.querySelector(".get").textContent = get || "✓"; row.classList.toggle("done", !get); return;
+  }
   const b = cur();
   if (e.target.id === "nameIn") { b.name = e.target.value; save(); const o = document.querySelector(`#buildSel option[value="${b.id}"]`); if (o) o.textContent = `${b.name || "Unnamed"} · ${byId[b.cls].name}`; }
   if (e.target.id === "notesIn") { b.notes = e.target.value; save(); }
